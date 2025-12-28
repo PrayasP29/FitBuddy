@@ -650,8 +650,8 @@
         <h3 style="font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; color:#777;">WORKOUT TIMER</h3>
         
         <div class="timer-container">
-            <div class="timer-display" id="timer-display">45:00</div>
-            <div class="timer-label" id="timer-phase">WARM UP</div>
+            <div class="timer-display" id="timer-display">02:00</div>
+            <div class="timer-label" id="timer-phase">WORKOUT SET 1</div>
             <div class="timer-buttons">
                 <button class="timer-btn" id="timer-start" onclick="startTimer()">Start</button>
                 <button class="timer-btn" id="timer-pause" onclick="pauseTimer()" style="display:none;">Pause</button>
@@ -686,10 +686,10 @@
     let isMetric = false;
     let isLoginMode = true;
     let timerInterval = null;
-    let timerSeconds = 2700; // 45 minutes in seconds
+    let timerSeconds = 120; // 2 minutes in seconds for workout
     let timerRunning = false;
     let timerPhase = 'workout'; // 'workout' or 'rest'
-    let currentSet = 0;
+    let currentSet = 1;
 
     const userData = {
         name: 'User',
@@ -928,10 +928,11 @@
 
     // --- TIMER FUNCTIONALITY ---
     function startWorkout() {
-        alert('🏋️ Training Session Initiated. Use the timer to track your sets!');
-        timerSeconds = 45 * 60; // 45 seconds for first demo
+        alert('🏋️ Training Session Initiated. 2 MIN workout sets with 45 SEC rest periods. Use the timer to track!');
+        timerSeconds = 120; // 2 minutes for first workout
         timerPhase = 'workout';
         currentSet = 1;
+        document.getElementById('timer-phase').innerText = 'WORKOUT SET ' + currentSet;
         updateTimerDisplay();
         startTimer();
     }
@@ -971,23 +972,30 @@
         timerRunning = false;
         
         if(timerPhase === 'workout') {
-            // Switch to rest period
+            // Switch to rest period (45 seconds)
             timerPhase = 'rest';
-            timerSeconds = 45; // 45 second rest
-            currentSet++;
-            document.getElementById('timer-phase').innerText = '🔄 REST PERIOD';
-        } else {
-            // Switch back to workout
-            timerPhase = 'workout';
             timerSeconds = 45;
-            document.getElementById('timer-phase').innerText = 'SET ' + currentSet;
+            document.getElementById('timer-phase').innerText = '🔄 REST PERIOD';
+            updateTimerDisplay();
+            
+            // Hide End button during rest, show info
+            document.getElementById('timer-pause').style.display = 'none';
+            document.getElementById('timer-resume').style.display = 'none';
+            document.getElementById('timer-end').style.display = 'inline-block';
+            document.getElementById('timer-start').style.display = 'inline-block';
+        } else {
+            // Rest period ended, switch back to workout (2 minutes)
+            timerPhase = 'workout';
+            timerSeconds = 120; // Reset to 2 minutes
+            currentSet++;
+            document.getElementById('timer-phase').innerText = 'WORKOUT SET ' + currentSet;
+            updateTimerDisplay();
+            
+            // Reset button states
+            document.getElementById('timer-pause').style.display = 'none';
+            document.getElementById('timer-resume').style.display = 'none';
+            document.getElementById('timer-start').style.display = 'inline-block';
         }
-        
-        updateTimerDisplay();
-        
-        document.getElementById('timer-pause').style.display = 'none';
-        document.getElementById('timer-resume').style.display = 'none';
-        document.getElementById('timer-start').style.display = 'inline-block';
     }
 
     function completePhase() {
@@ -995,24 +1003,27 @@
         timerRunning = false;
         
         if(timerPhase === 'workout') {
+            // Workout complete, move to rest
             timerPhase = 'rest';
             timerSeconds = 45;
             document.getElementById('timer-phase').innerText = '🔄 REST PERIOD';
             updateTimerDisplay();
-            alert('⏱️ SET COMPLETE! Rest for 45 seconds.');
+            alert('⏱️ SET ' + currentSet + ' COMPLETE! 45-second rest starting...');
             startTimer();
         } else {
+            // Rest complete, move to next workout set
             timerPhase = 'workout';
-            timerSeconds = 45;
+            timerSeconds = 120; // Reset to 2 minutes
             currentSet++;
-            document.getElementById('timer-phase').innerText = 'SET ' + currentSet;
+            document.getElementById('timer-phase').innerText = 'WORKOUT SET ' + currentSet;
             updateTimerDisplay();
-            alert('💪 Rest Complete! Ready for next set?');
+            alert('💪 Rest Complete! Ready for SET ' + currentSet + '!');
+            
+            // Reset button states
+            document.getElementById('timer-pause').style.display = 'none';
+            document.getElementById('timer-resume').style.display = 'none';
+            document.getElementById('timer-start').style.display = 'inline-block';
         }
-        
-        document.getElementById('timer-pause').style.display = 'none';
-        document.getElementById('timer-resume').style.display = 'none';
-        document.getElementById('timer-start').style.display = 'inline-block';
     }
 
     function updateTimerDisplay() {
@@ -1089,9 +1100,10 @@
             navigate('screen-welcome');
             app.classList.add('hero-mode');
             // Reset timer
-            timerSeconds = 2700;
+            timerSeconds = 120; // 2 minutes
             timerRunning = false;
             timerPhase = 'workout';
+            currentSet = 1;
             updateTimerDisplay();
         }
     }
