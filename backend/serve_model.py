@@ -7,7 +7,7 @@ from peft import PeftModel
 
 os.environ["TRANSFORMERS_NO_TF"] = "1"
 
-BASE_MODEL = "microsoft/phi-2"  # or your actual base
+BASE_MODEL = "microsoft/phi-2" 
 ADAPTER_PATH = r"C:\Users\LOQ\fitness_project\phi-fitness-final"
 
 tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
@@ -23,7 +23,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # for demo; restrict later
+    allow_origins=["*"],    
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
