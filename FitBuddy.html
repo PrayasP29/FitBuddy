@@ -596,17 +596,45 @@
 
     <div class="screen" id="screen-bmi">
         <div class="header-nav"><button class="back-btn" onclick="goBack('screen-weight')">← Back</button></div>
-        <h2>Analysis</h2>
+        <h2>BMI</h2>
+        <p>Body Mass Index Analysis.</p>
         <div style="text-align: center; margin: 40px 0;">
             <h1 id="bmi-disp" style="color: var(--primary); font-size: 64px;">0.0</h1>
             <p id="bmi-cat" style="color: white; letter-spacing: 2px; text-transform: uppercase;">CALCULATING...</p>
         </div>
         <p id="bmi-desc">System analysis pending...</p>
-        <button class="btn" onclick="navigate('screen-goals')">Set Objectives</button>
+        <button class="btn" onclick="calculateBMR()">Calculate Metabolism</button>
+    </div>
+
+    <div class="screen" id="screen-bmr" style="overflow-y: auto;">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-bmi')">← Back</button></div>
+        <h2>Metabolism</h2>
+        <p>Basal Metabolic Rate & Maintenance Calories.</p>
+        <div style="text-align: center; margin: 40px 0;">
+            <h1 id="bmr-disp" style="color: var(--primary); font-size: 56px;">0</h1>
+            <p style="color: white; letter-spacing: 2px; text-transform: uppercase; margin-top: 10px;">BASAL METABOLIC RATE</p>
+        </div>
+        
+        <label style="font-size:12px; color:#aaa; margin-bottom:10px; display: block;">Activity Level</label>
+        <div class="selection-grid">
+            <div class="chip" onclick="selectActivityLevel(this, 1.2)">Sedentary</div>
+            <div class="chip" onclick="selectActivityLevel(this, 1.375)">Lightly Active</div>
+            <div class="chip" onclick="selectActivityLevel(this, 1.55)">Moderately Active</div>
+            <div class="chip" onclick="selectActivityLevel(this, 1.725)">Very Active</div>
+            <div class="chip" onclick="selectActivityLevel(this, 2.0)">Extra Active</div>
+        </div>
+
+        <div style="background: rgba(229, 9, 20, 0.15); border-left: 3px solid var(--primary); padding: 15px; margin: 25px 0; border-radius: 2px;">
+            <p style="color: #aaa; font-size: 12px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">📊 Maintenance Calories</p>
+            <h3 id="tdee-disp" style="color: var(--primary); font-size: 32px; margin: 0;">0</h3>
+            <p style="color: #999; font-size: 11px; margin-top: 5px;">Daily caloric intake for weight maintenance</p>
+        </div>
+
+        <button class="btn" onclick="navigate('screen-goals')">Continue</button>
     </div>
 
     <div class="screen" id="screen-goals">
-        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-bmi')">← Back</button></div>
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-bmr')">← Back</button></div>
         <h2>Objectives</h2>
         <p>Select all targets.</p>
         <div class="selection-grid">
@@ -614,6 +642,10 @@
             <div class="chip" onclick="toggleChip(this)">Hypertrophy</div>
             <div class="chip" onclick="toggleChip(this)">Endurance</div>
             <div class="chip" onclick="toggleChip(this)">Athleticism</div>
+            <div class="chip" onclick="toggleChip(this)">Strength Training</div>
+            <div class="chip" onclick="toggleChip(this)">Muscular Hypertrophy</div>
+            <div class="chip" onclick="toggleChip(this)">Cardiovascular Endurance</div>
+            <div class="chip" onclick="toggleChip(this)">Weight Gain</div>
         </div>
         <button class="btn" onclick="navigate('screen-health')">Continue</button>
     </div>
@@ -681,6 +713,7 @@
                 <button class="timer-btn" id="timer-pause" onclick="pauseTimer()" style="display:none;">Pause</button>
                 <button class="timer-btn" id="timer-resume" onclick="resumeTimer()" style="display:none;">Resume</button>
                 <button class="timer-btn" id="timer-end" onclick="endSet()" style="display:none;">End</button>
+                <button class="timer-btn" id="timer-finish" onclick="endWorkout()" style="display:none; background: var(--primary); color: white; border-color: var(--primary);">Finish Workout</button>
             </div>
         </div>
 
@@ -704,6 +737,19 @@
         <button class="btn" onclick="startWorkout()">Begin Session</button>
         <button class="logout-btn" onclick="logout()">Logout</button>
         <div class="link-text" onclick="location.reload()">Reset System</div>
+    </div>
+
+    <div id="workout-complete-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background: var(--glass-panel); border: 1px solid rgba(255,255,255,0.1); padding:40px; text-align:center; border-radius:4px; max-width:350px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);">
+            <h2 style="font-size:28px; margin-bottom:20px; color:white;">🎉 Well Done!</h2>
+            <p style="color:#aaa; font-size:14px; margin-bottom:30px; line-height:1.6;">Thanks for taking care of your fitness and staying committed to your goals.</p>
+            <div style="background:rgba(229, 9, 20, 0.15); padding:25px; margin:25px 0; border-radius:4px; border-left:3px solid var(--primary);">
+                <p style="color:#aaa; font-size:12px; text-transform:uppercase; margin-bottom:10px; letter-spacing:1px;">Total Calories Burned</p>
+                <h1 id="modal-calories" style="color:var(--primary); font-size:48px; margin:0;">0</h1>
+                <p style="color:#999; font-size:11px; margin-top:8px;">kcal</p>
+            </div>
+            <button class="btn" onclick="closeWorkoutModal()">Back to Dashboard</button>
+        </div>
     </div>
 
 </div>
@@ -1032,6 +1078,53 @@
         navigate('screen-bmi');
     }
 
+    function calculateBMR() {
+        // BMR = Basal Metabolic Rate using Mifflin-St Jeor formula
+        // Men: (10×W) + (6.25×H) - (5×A) + 5
+        // Women: (10×W) + (6.25×H) - (5×A) - 161
+        // W=Weight(kg), H=Height(cm), A=Age(years)
+        
+        const weight = userData.weight;
+        const height = userData.height;
+        const age = userData.age;
+        const gender = userData.gender;
+        
+        let bmr = 0;
+        
+        if(gender === 'Male') {
+            bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+        } else if(gender === 'Female') {
+            bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
+        } else {
+            const maleCalc = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+            const femaleCalc = (10 * weight) + (6.25 * height) - (5 * age) - 161;
+            bmr = (maleCalc + femaleCalc) / 2;
+        }
+        
+        userData.bmr = Math.round(bmr);
+        accounts[userData.email].bmr = userData.bmr;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        
+        document.getElementById('bmr-disp').innerText = userData.bmr;
+        clearScreenError();
+        navigate('screen-bmr');
+    }
+
+    function selectActivityLevel(el, activityFactor) {
+        document.querySelectorAll('#screen-bmr .selection-grid .chip').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+        
+        const tdee = Math.round(userData.bmr * activityFactor);
+        userData.tdee = tdee;
+        userData.activityLevel = el.innerText;
+        
+        accounts[userData.email].tdee = userData.tdee;
+        accounts[userData.email].activityLevel = userData.activityLevel;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        
+        document.getElementById('tdee-disp').innerText = tdee + ' kcal/day';
+    }
+
     // Chips
     function toggleChip(el) {
         el.classList.toggle('selected');
@@ -1128,6 +1221,7 @@
         timerPhase = 'workout';
         currentSet = 1;
         document.getElementById('timer-phase').innerText = 'WORKOUT SET ' + currentSet;
+        document.getElementById('timer-finish').style.display = 'inline-block';
         updateTimerDisplay();
         startTimer();
     }
@@ -1178,6 +1272,7 @@
             document.getElementById('timer-resume').style.display = 'none';
             document.getElementById('timer-end').style.display = 'inline-block';
             document.getElementById('timer-start').style.display = 'inline-block';
+            document.getElementById('timer-finish').style.display = 'inline-block';
         } else {
             // Rest period ended, switch back to workout (2 minutes)
             timerPhase = 'workout';
@@ -1190,6 +1285,7 @@
             document.getElementById('timer-pause').style.display = 'none';
             document.getElementById('timer-resume').style.display = 'none';
             document.getElementById('timer-start').style.display = 'inline-block';
+            document.getElementById('timer-finish').style.display = 'inline-block';
         }
     }
 
@@ -1218,6 +1314,7 @@
             document.getElementById('timer-pause').style.display = 'none';
             document.getElementById('timer-resume').style.display = 'none';
             document.getElementById('timer-start').style.display = 'inline-block';
+            document.getElementById('timer-finish').style.display = 'inline-block';
         }
     }
 
@@ -1333,6 +1430,39 @@
             currentSet = 1;
             updateTimerDisplay();
         }
+    }
+
+    // --- WORKOUT COMPLETION ---
+    function endWorkout() {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        
+        // Calculate total calories burned
+        // Formula: (BMR / 1440) * Total Time(minutes) * Intensity Factor
+        // Intensity Factor: HIGH = 1.8
+        const bmr = userData.bmr || 1500; // Default BMR if not calculated
+        const caloriesPerMinute = (bmr / 1440) * 1.8; // High intensity
+        const totalMinutes = currentSet * 2.75; // 2 min workout + 0.75 min rest per set (45 sec = 0.75 min)
+        const caloriesBurned = Math.round(caloriesPerMinute * totalMinutes);
+        
+        // Display modal with results
+        document.getElementById('modal-calories').innerText = caloriesBurned;
+        document.getElementById('workout-complete-modal').style.display = 'flex';
+    }
+
+    function closeWorkoutModal() {
+        document.getElementById('workout-complete-modal').style.display = 'none';
+        // Reset timer for next workout
+        timerSeconds = 120;
+        timerPhase = 'workout';
+        currentSet = 1;
+        updateTimerDisplay();
+        document.getElementById('timer-start').style.display = 'inline-block';
+        document.getElementById('timer-pause').style.display = 'none';
+        document.getElementById('timer-resume').style.display = 'none';
+        document.getElementById('timer-end').style.display = 'none';
+        document.getElementById('timer-finish').style.display = 'none';
+        document.getElementById('timer-phase').innerText = 'WORKOUT SET 1';
     }
 
 </script>
