@@ -519,6 +519,8 @@
         <div id="auth-error" class="error-msg" style="display:none;"></div>
         <input type="email" id="auth-email" placeholder="EMAIL ADDRESS">
         <input type="password" id="auth-pass" placeholder="PASSWORD">
+        <input type="password" id="auth-confirm" placeholder="CONFIRM PASSWORD" style="display:none;">
+        <div id="confirm-error" class="error-msg" style="display:none;"></div>
         
         <button class="btn" onclick="handleAuth()">Sign In</button>
         
@@ -748,16 +750,21 @@
         document.getElementById('auth-sub').innerText = isLoginMode ? "Sign in to your account" : "Create new account to get started";
         document.getElementById('auth-toggle-text').innerText = isLoginMode ? "Don't have an account? Sign Up" : "Already have an account? Sign In";
         document.getElementById('auth-error').style.display = 'none';
+        document.getElementById('confirm-error').style.display = 'none';
+        document.getElementById('auth-confirm').style.display = isLoginMode ? 'none' : 'block';
     }
 
     function handleAuth() {
         const email = document.getElementById('auth-email').value;
         const pass = document.getElementById('auth-pass').value;
+        const confirmPass = document.getElementById('auth-confirm').value;
         const errorDiv = document.getElementById('auth-error');
+        const confirmErrorDiv = document.getElementById('confirm-error');
 
         if(!email || !pass) {
             errorDiv.innerText = "EMAIL AND PASSWORD REQUIRED";
             errorDiv.style.display = 'block';
+            confirmErrorDiv.style.display = 'none';
             return;
         }
 
@@ -765,6 +772,7 @@
         if(!validateEmail(email)) {
             errorDiv.innerText = "INVALID EMAIL FORMAT (use: local@domain.com)";
             errorDiv.style.display = 'block';
+            confirmErrorDiv.style.display = 'none';
             return;
         }
 
@@ -773,26 +781,38 @@
             if(!accounts[email] || accounts[email].password !== pass) {
                 errorDiv.innerText = "INVALID EMAIL OR PASSWORD";
                 errorDiv.style.display = 'block';
+                confirmErrorDiv.style.display = 'none';
                 return;
             }
             userData.email = email;
             userData.name = accounts[email].name;
             userData.workoutDays = accounts[email].workoutDays || [];
             errorDiv.style.display = 'none';
+            confirmErrorDiv.style.display = 'none';
             navigate('screen-result');
             renderResult();
             renderCalendar();
         } else {
             // Sign Up
+            // Check if passwords match
+            if(pass !== confirmPass) {
+                confirmErrorDiv.innerText = "PLEASE RECHECK THE PASSWORD";
+                confirmErrorDiv.style.display = 'block';
+                errorDiv.style.display = 'none';
+                return;
+            }
+
             if(!validatePassword(pass)) {
                 errorDiv.innerText = "PASSWORD: MIN 8 CHARS, 1 UPPERCASE, 1 SPECIAL CHAR (!@#$%^&*...)";
                 errorDiv.style.display = 'block';
+                confirmErrorDiv.style.display = 'none';
                 return;
             }
 
             if(accounts[email]) {
                 errorDiv.innerText = "ACCOUNT ALREADY EXISTS";
                 errorDiv.style.display = 'block';
+                confirmErrorDiv.style.display = 'none';
                 return;
             }
 
@@ -805,6 +825,7 @@
             localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
             userData.email = email;
             errorDiv.style.display = 'none';
+            confirmErrorDiv.style.display = 'none';
             navigate('screen-name');
         }
     }
