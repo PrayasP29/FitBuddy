@@ -597,11 +597,11 @@
             <div class="chip" onclick="toggleChip(this)">Endurance</div>
             <div class="chip" onclick="toggleChip(this)">Athleticism</div>
         </div>
-        <button class="btn" onclick="navigate('screen-time')">Continue</button>
+        <button class="btn" onclick="navigate('screen-health')">Continue</button>
     </div>
 
     <div class="screen" id="screen-time">
-        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-goals')">← Back</button></div>
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-health')">← Back</button></div>
         <h2>Allocation</h2>
         <p>Daily time availability.</p>
         <div class="selection-grid">
@@ -610,15 +610,15 @@
             <div class="chip single" onclick="selectSingle(this)">45 Min</div>
             <div class="chip single" onclick="selectSingle(this)">60 Min</div>
         </div>
-        <button class="btn" onclick="navigate('screen-health')">Continue</button>
+        <button class="btn" onclick="generatePlan()">Continue</button>
     </div>
 
     <div class="screen" id="screen-health">
-        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-time')">← Back</button></div>
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-goals')">← Back</button></div>
         <h2>Constraints</h2>
         <p>Injuries or medical conditions.</p>
         <textarea id="inp-health" rows="4" placeholder="e.g. Lower back pain..."></textarea>
-        <button class="btn" onclick="generatePlan()">Generate Protocol</button>
+        <button class="btn" onclick="saveHealthAndContinue()">Continue</button>
     </div>
 
     <div class="screen" id="screen-loading">
@@ -666,16 +666,22 @@
             </div>
         </div>
 
-        <h3 style="font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; color:#777;">WORKOUT HISTORY</h3>
-        
+        <h3 style="font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; color:#777;">SEQUENCE</h3>
+
+        <div id="exercise-list"></div>
+
+        <h3 style="font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-top:20px; margin-bottom: 10px; color:#777;">WORKOUT HISTORY</h3>
+
         <div class="calendar-container">
-            <div class="calendar-header">📅 Activity Tracker</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div class="calendar-header">📅 Activity Tracker</div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <select id="calendar-month-select" style="background:transparent; color:#ddd; border:1px solid #333; padding:8px; border-radius:2px;"></select>
+                    <select id="calendar-year-select" style="background:transparent; color:#ddd; border:1px solid #333; padding:8px; border-radius:2px;"></select>
+                </div>
+            </div>
             <div class="calendar-grid" id="calendar-grid"></div>
         </div>
-
-        <h3 style="font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; color:#777;">SEQUENCE</h3>
-        
-        <div id="exercise-list"></div>
 
         <button class="btn" onclick="startWorkout()">Begin Session</button>
         <button class="logout-btn" onclick="logout()">Logout</button>
@@ -691,6 +697,7 @@
     const app = document.getElementById('app');
     let isMetric = false;
     let isLoginMode = true;
+    let isExistingLogin = false;
     let timerInterval = null;
     let timerSeconds = 120; // 2 minutes in seconds for workout
     let timerRunning = false;
@@ -781,7 +788,7 @@
         }
 
         if(isLoginMode) {
-            // Sign In
+            // Sign In - Existing User
             if(!accounts[email] || accounts[email].password !== pass) {
                 errorDiv.innerText = "INVALID EMAIL OR PASSWORD";
                 errorDiv.style.display = 'block';
@@ -791,13 +798,21 @@
             userData.email = email;
             userData.name = accounts[email].name;
             userData.workoutDays = accounts[email].workoutDays || [];
+            userData.height = accounts[email].height || 0;
+            userData.weight = accounts[email].weight || 0;
+            userData.bmi = accounts[email].bmi || 0;
+            userData.goals = accounts[email].goals || [];
+            userData.health = accounts[email].health || '';
+            // Mark that this is an existing login so selecting today's time auto-generates plan
+            isExistingLogin = true;
+            // Load previous time preference if available
+            userData.time = accounts[email].time || userData.time;
             errorDiv.style.display = 'none';
             confirmErrorDiv.style.display = 'none';
-            navigate('screen-result');
-            renderResult();
-            renderCalendar();
+            // Existing users go to time selection for daily commitment
+            navigate('screen-time');
         } else {
-            // Sign Up
+            // Sign Up - New User
             // Check if passwords match
             if(pass !== confirmPass) {
                 confirmErrorDiv.innerText = "PLEASE RECHECK THE PASSWORD";
@@ -824,12 +839,18 @@
             accounts[email] = {
                 password: pass,
                 name: 'User',
-                workoutDays: []
+                workoutDays: [],
+                height: 0,
+                weight: 0,
+                bmi: 0,
+                goals: [],
+                health: ''
             };
             localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
             userData.email = email;
             errorDiv.style.display = 'none';
             confirmErrorDiv.style.display = 'none';
+            // New users go through full setup
             navigate('screen-name');
         }
     }
@@ -902,6 +923,9 @@
             if(!ft) return alert("ENTER HEIGHT");
             userData.height = (parseFloat(ft) * 30.48) + (parseFloat(inch || 0) * 2.54);
         }
+        // Save to account
+        accounts[userData.email].height = userData.height;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
         navigate('screen-weight');
     }
 
@@ -913,6 +937,11 @@
         const h_m = userData.height / 100;
         const bmi = userData.weight / (h_m * h_m);
         userData.bmi = bmi.toFixed(1);
+        
+        // Save to account
+        accounts[userData.email].weight = userData.weight;
+        accounts[userData.email].bmi = userData.bmi;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
         
         document.getElementById('bmi-disp').innerText = userData.bmi;
         let cat = "";
@@ -933,22 +962,52 @@
         const val = el.innerText;
         if(el.classList.contains('selected')) userData.goals.push(val);
         else userData.goals = userData.goals.filter(g => g !== val);
+        // Save to account
+        accounts[userData.email].goals = userData.goals;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
     }
     
     function selectSingle(el) {
         el.parentNode.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
         el.classList.add('selected');
         userData.time = el.innerText;
+        // Save to account
+        accounts[userData.email].time = userData.time;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        // If this selection is happening right after an existing user logged in,
+        // automatically generate the plan for today's session
+        if(isExistingLogin) {
+            isExistingLogin = false;
+            generatePlan();
+        }
     }
 
     // Generation
     function generatePlan() {
         navigate('screen-loading');
         setTimeout(() => {
+            // Save health information to account
+            // ensure latest health textarea is saved if present
+            if(document.getElementById('inp-health')) {
+                userData.health = document.getElementById('inp-health').value || userData.health || '';
+            }
+            accounts[userData.email].health = userData.health;
+            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
             renderResult();
             navigate('screen-result');
+            populateMonthYearSelectors();
             renderCalendar();
         }, 2000);
+    }
+
+    function saveHealthAndContinue() {
+        const h = document.getElementById('inp-health').value;
+        userData.health = h;
+        if(userData.email) {
+            accounts[userData.email].health = userData.health;
+            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        }
+        navigate('screen-time');
     }
 
     function renderResult() {
@@ -1094,10 +1153,42 @@
     }
 
     // --- CALENDAR FUNCTIONALITY ---
-    function renderCalendar() {
+    function populateMonthYearSelectors(selectedMonth, selectedYear) {
+        const monthSelect = document.getElementById('calendar-month-select');
+        const yearSelect = document.getElementById('calendar-year-select');
+        const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        monthSelect.innerHTML = '';
+        months.forEach((m, idx) => {
+            const opt = document.createElement('option');
+            opt.value = idx;
+            opt.innerText = m;
+            monthSelect.appendChild(opt);
+        });
+
+        // Build year range around current year
         const today = new Date();
-        const currentMonth = today.getMonth();
-        const currentYear = today.getFullYear();
+        const baseYear = today.getFullYear();
+        yearSelect.innerHTML = '';
+        for(let y = baseYear - 2; y <= baseYear + 2; y++) {
+            const o = document.createElement('option');
+            o.value = y;
+            o.innerText = y;
+            yearSelect.appendChild(o);
+        }
+
+        if(typeof selectedMonth === 'number') monthSelect.value = selectedMonth;
+        else monthSelect.value = today.getMonth();
+        if(typeof selectedYear === 'number') yearSelect.value = selectedYear;
+        else yearSelect.value = baseYear;
+
+        monthSelect.onchange = () => renderCalendar(parseInt(monthSelect.value), parseInt(yearSelect.value));
+        yearSelect.onchange = () => renderCalendar(parseInt(monthSelect.value), parseInt(yearSelect.value));
+    }
+
+    function renderCalendar(monthIndex, year) {
+        const today = new Date();
+        const currentMonth = (typeof monthIndex === 'number') ? monthIndex : today.getMonth();
+        const currentYear = (typeof year === 'number') ? year : today.getFullYear();
         const firstDay = new Date(currentYear, currentMonth, 1);
         const lastDay = new Date(currentYear, currentMonth + 1, 0);
         
