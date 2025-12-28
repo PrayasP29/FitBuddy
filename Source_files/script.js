@@ -1,4 +1,4 @@
-  // --- APP LOGIC ---
+// --- APP LOGIC ---
     
     // Initial Setup
     const app = document.getElementById('app');
@@ -24,6 +24,128 @@
         workoutDays: [] // Track workout dates
     };
 
+    // --- EXERCISE LIBRARY ---
+    // Master exercise lists (categorised). 'Depth jumps' intentionally excluded from visible pool.
+    const exerciseLibrary = {
+        CHEST: [
+            'Push-ups','Incline push-ups','Decline push-ups','Wide push-ups','Diamond push-ups','Bench press','Incline bench press','Decline bench press','Dumbbell bench press','Dumbbell flyes','Incline dumbbell flyes','Chest dips','Cable chest fly','Pec deck machine','Resistance band chest press'
+        ],
+        BACK: [
+            'Pull-ups','Chin-ups','Lat pulldown','Seated cable row','Bent-over barbell row','Dumbbell row','T-bar row','Deadlift','Rack pulls','Straight-arm pulldown','Inverted rows','Machine row','Resistance band row','Wide-grip pulldown','Close-grip pulldown'
+        ],
+        SHOULDERS: [
+            'Shoulder press','Dumbbell shoulder press','Arnold press','Lateral raises','Front raises','Rear delt fly','Upright row','Cable lateral raise','Barbell overhead press','Machine shoulder press','Face pulls','Resistance band raises','Pike push-ups','Handstand push-ups','Cuban press'
+        ],
+        BICEPS: [
+            'Barbell curl','Dumbbell curl','Hammer curl','Preacher curl','Concentration curl','Cable curl','Incline dumbbell curl','Resistance band curl','Zottman curl','Chin-up (biceps focus)'
+        ],
+        TRICEPS: [
+            'Tricep dips','Close-grip push-ups','Close-grip bench press','Skull crushers','Overhead tricep extension','Cable pushdown','Rope pushdown','Resistance band extension','Diamond dips','Kickbacks'
+        ],
+        LEGS: [
+            'Squats','Front squats','Goblet squats','Lunges','Walking lunges','Reverse lunges','Bulgarian split squats','Leg press','Leg extensions','Hamstring curls','Romanian deadlifts','Stiff-leg deadlifts','Step-ups','Box squats','Jump squats','Wall sits','Pistol squats','Sumo squats','Hack squats','Resistance band squats'
+        ],
+        GLUTES: [
+            'Hip thrusts','Glute bridges','Cable kickbacks','Donkey kicks','Fire hydrants','Kettlebell swings','Barbell hip thrusts','Frog pumps','Step-back lunges','Single-leg bridges'
+        ],
+        CALVES: [
+            'Standing calf raises','Seated calf raises','Single-leg calf raises','Donkey calf raises','Jump rope'
+        ],
+        CORE: [
+            'Plank','Side plank','Crunches','Sit-ups','Bicycle crunches','Leg raises','Hanging leg raises','Russian twists','Mountain climbers','Flutter kicks','V-ups','Toe touches','Ab wheel rollout','Dead bug','Hollow body hold'
+        ],
+        CARDIO: [
+            'Jumping jacks','Burpees','High knees','Skipping rope','Sprinting','Cycling','Rowing machine','Treadmill running','Stair climbing','Shadow boxing','Battle ropes','Kettlebell clean','Kettlebell snatch','Bear crawl','Farmer’s walk'
+        ],
+        FUNCTIONAL: [
+            'Stretching','Yoga sun salutations','Mobility drills','Foam rolling','Resistance band walks','Animal walks','Turkish get-up','Windmills','Cossack squats','Overhead carries','Sled push','Sled pull','Medicine ball slam','Medicine ball throw','Balance drills','Agility ladder','Jump lunges','Skater jumps','Broad jumps'
+            // note: 'Depth jumps' intentionally omitted from visible pool
+        ]
+    };
+
+    // Flattened pool used for random selection
+    const combinedExercisePool = Object.values(exerciseLibrary).flat();
+    let lastGeneratedExercises = [];
+
+    function shuffleArray(arr) {
+        const a = arr.slice();
+        for(let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    function getRandomExercises(count = 7) {
+        const pool = combinedExercisePool.slice();
+        const shuffled = shuffleArray(pool);
+        return shuffled.slice(0, Math.min(count, shuffled.length));
+    }
+
+    // Build a prioritized pool based on selected goals
+    function buildPoolFromGoals(goals) {
+        if(!goals || !goals.length) return combinedExercisePool.slice();
+        const pool = [];
+        const addCategory = (cat) => {
+            if(!exerciseLibrary[cat]) return;
+            exerciseLibrary[cat].forEach(e => pool.push(e));
+        };
+
+        goals.forEach(g => {
+            const gg = g.toLowerCase();
+            if(gg.includes('hypertrophy') || gg.includes('muscular') || gg.includes('weight gain')) {
+                ['CHEST','BACK','LEGS','SHOULDERS','GLUTES','TRICEPS','BICEPS'].forEach(addCategory);
+            } else if(gg.includes('strength')) {
+                ['LEGS','BACK','CHEST','SHOULDERS'].forEach(addCategory);
+            } else if(gg.includes('weight loss') || gg.includes('cardio') || gg.includes('endurance')) {
+                ['CARDIO','CORE','FUNCTIONAL','LEGS'].forEach(addCategory);
+            } else if(gg.includes('endurance')) {
+                ['CARDIO','CORE','FUNCTIONAL'].forEach(addCategory);
+            } else if(gg.includes('athletic')) {
+                ['FUNCTIONAL','CARDIO','CORE'].forEach(addCategory);
+            } else {
+                // fallback: include all
+                Object.keys(exerciseLibrary).forEach(addCategory);
+            }
+        });
+
+        // Deduplicate while preserving order
+        const dedup = [];
+        pool.forEach(e => { if(!dedup.includes(e)) dedup.push(e); });
+
+        // If pool too small, append from combined pool
+        combinedExercisePool.forEach(e => { if(!dedup.includes(e)) dedup.push(e); });
+        return dedup;
+    }
+
+    function isProfileComplete() {
+        // Required: age, gender, height, weight, time
+        if(!userData.age || !userData.gender) return false;
+        if(!userData.height || !userData.weight) return false;
+        if(!userData.time) return false;
+        return true;
+    }
+
+    function randomizeIfReady(showImmediately = true) {
+        if(!isProfileComplete()) return;
+        // Build a prioritized pool based on selected goals (if any)
+        const pool = (userData.goals && userData.goals.length) ? buildPoolFromGoals(userData.goals) : combinedExercisePool.slice();
+        const shuffled = shuffleArray(pool);
+        const picks = shuffled.slice(0, Math.min(7, shuffled.length));
+        lastGeneratedExercises = picks.map(n => ({ n, s: '', r: '' }));
+        // Save a snapshot for account (optional)
+        if(userData.email) {
+            accounts[userData.email].lastPlan = lastGeneratedExercises.map(e => e.n);
+            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        }
+        if(showImmediately) {
+            renderResult();
+            navigate('screen-result');
+            populateMonthYearSelectors();
+            renderCalendar();
+        }
+    }
+
     // Registered accounts storage (in real app, use backend)
     const accounts = JSON.parse(localStorage.getItem('fitbuddyAccounts')) || {};
 
@@ -45,6 +167,7 @@
     // Navigation
     function navigate(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        clearScreenError();
         document.getElementById(screenId).classList.add('active');
         
         // Toggle Hero Mode CSS
@@ -53,6 +176,34 @@
         } else {
             app.classList.remove('hero-mode');
         }
+    }
+
+    function showScreenError(msg, inputId = null) {
+        const d = document.getElementById('screen-error');
+        if(d) {
+            d.innerText = msg.toUpperCase();
+            d.style.display = 'block';
+        } else {
+            alert(msg);
+        }
+        // Highlight the specific input with error if provided
+        if(inputId) {
+            const inp = document.getElementById(inputId);
+            if(inp) inp.classList.add('input-error');
+            // Also show error message div below input if it exists
+            const errDiv = document.getElementById(inputId + '-error');
+            if(errDiv) {
+                errDiv.innerText = 'PLEASE FILL THE REQUIRED FIELD';
+                errDiv.style.display = 'block';
+            }
+        }
+    }
+
+    function clearScreenError() {
+        const d = document.getElementById('screen-error');
+        if(d) d.style.display = 'none';
+        document.querySelectorAll('input.input-error, select.input-error').forEach(el => el.classList.remove('input-error'));
+        document.querySelectorAll('[id$="-error"]').forEach(el => el.style.display = 'none');
     }
 
     function goBack(screenId, isWelcome = false) {
@@ -207,7 +358,34 @@
 
     function validateNext(inputId, nextId) {
         const val = document.getElementById(inputId).value;
-        if(!val) return alert("INPUT REQUIRED");
+        if(!val) {
+            showScreenError('please fill missing field', inputId);
+            return;
+        }
+
+        // Special handling for age screen: save age and gender
+        if(inputId === 'inp-age') {
+            const ageVal = parseInt(val, 10);
+            if(isNaN(ageVal) || ageVal <= 0) {
+                showScreenError('please enter a valid age', 'inp-age');
+                return;
+            }
+            userData.age = ageVal;
+            const genderSel = document.getElementById('inp-gender');
+            if(!genderSel.value) {
+                showScreenError('please fill missing field', 'inp-gender');
+                return;
+            }
+            if(genderSel) userData.gender = genderSel.value || '';
+            // persist to account if logged in
+            if(userData.email) {
+                accounts[userData.email].age = userData.age;
+                accounts[userData.email].gender = userData.gender || '';
+                localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+            }
+        }
+
+        clearScreenError();
         navigate(nextId);
     }
 
@@ -222,23 +400,24 @@
     function saveHeight() {
         if(isMetric) {
             const cm = document.getElementById('inp-cm').value;
-            if(!cm) return alert("ENTER HEIGHT");
+            if(!cm) { showScreenError('please fill missing field', 'inp-cm'); return; }
             userData.height = parseFloat(cm);
         } else {
             const ft = document.getElementById('inp-ft').value;
             const inch = document.getElementById('inp-in').value;
-            if(!ft) return alert("ENTER HEIGHT");
+            if(!ft) { showScreenError('please fill missing field', 'inp-ft'); return; }
             userData.height = (parseFloat(ft) * 30.48) + (parseFloat(inch || 0) * 2.54);
         }
         // Save to account
         accounts[userData.email].height = userData.height;
         localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        clearScreenError();
         navigate('screen-weight');
     }
 
     function calcBMI() {
         const w = document.getElementById('inp-weight').value;
-        if(!w) return alert("ENTER WEIGHT");
+        if(!w) { showScreenError('please fill missing field', 'inp-weight'); return; }
         userData.weight = parseFloat(w);
         
         const h_m = userData.height / 100;
@@ -260,7 +439,55 @@
         
         document.getElementById('bmi-cat').innerText = cat;
         document.getElementById('bmi-desc').innerText = desc;
+        clearScreenError();
         navigate('screen-bmi');
+    }
+
+    function calculateBMR() {
+        // BMR = Basal Metabolic Rate using Mifflin-St Jeor formula
+        // Men: (10×W) + (6.25×H) - (5×A) + 5
+        // Women: (10×W) + (6.25×H) - (5×A) - 161
+        // W=Weight(kg), H=Height(cm), A=Age(years)
+        
+        const weight = userData.weight;
+        const height = userData.height;
+        const age = userData.age;
+        const gender = userData.gender;
+        
+        let bmr = 0;
+        
+        if(gender === 'Male') {
+            bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+        } else if(gender === 'Female') {
+            bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
+        } else {
+            const maleCalc = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+            const femaleCalc = (10 * weight) + (6.25 * height) - (5 * age) - 161;
+            bmr = (maleCalc + femaleCalc) / 2;
+        }
+        
+        userData.bmr = Math.round(bmr);
+        accounts[userData.email].bmr = userData.bmr;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        
+        document.getElementById('bmr-disp').innerText = userData.bmr;
+        clearScreenError();
+        navigate('screen-bmr');
+    }
+
+    function selectActivityLevel(el, activityFactor) {
+        document.querySelectorAll('#screen-bmr .selection-grid .chip').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+        
+        const tdee = Math.round(userData.bmr * activityFactor);
+        userData.tdee = tdee;
+        userData.activityLevel = el.innerText;
+        
+        accounts[userData.email].tdee = userData.tdee;
+        accounts[userData.email].activityLevel = userData.activityLevel;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        
+        document.getElementById('tdee-disp').innerText = tdee + ' kcal/day';
     }
 
     // Chips
@@ -272,6 +499,8 @@
         // Save to account
         accounts[userData.email].goals = userData.goals;
         localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        // Re-randomize exercises whenever goals change
+        randomizeIfReady(false);
     }
     
     function selectSingle(el) {
@@ -286,25 +515,129 @@
         if(isExistingLogin) {
             isExistingLogin = false;
             generatePlan();
+            return;
         }
+        // Re-randomize whenever time selection changes
+        randomizeIfReady(false);
     }
 
-    // Generation
-    function generatePlan() {
-        navigate('screen-loading');
-        setTimeout(() => {
-            // Save health information to account
-            // ensure latest health textarea is saved if present
+    // Generation - call FastAPI LLM endpoint and render result
+    async function generatePlan() {
+        // If user profile is complete, generate local randomized plan immediately (no server call)
+        if(isProfileComplete()) {
+            // Save latest health info
             if(document.getElementById('inp-health')) {
                 userData.health = document.getElementById('inp-health').value || userData.health || '';
             }
             accounts[userData.email].health = userData.health;
             localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+            randomizeIfReady(true);
+            return;
+        }
+
+        navigate('screen-loading');
+
+        // Save latest health info
+        if(document.getElementById('inp-health')) {
+            userData.health = document.getElementById('inp-health').value || userData.health || '';
+        }
+        accounts[userData.email].health = userData.health;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+
+        // Attempt to call FastAPI endpoint (use /api/routine)
+        const endpoints = [ 'http://127.0.0.1:8000/api/routine' ];
+        const timeoutMs = 60000; // increase timeout to 30s for model generation
+
+        let planFromServer = null;
+
+        function parseFreeTime(t) {
+            if(!t) return 45;
+            // Accept formats like '45 Min', '30 Min', '60 Min' or '45 Min'
+            const m = String(t).match(/(\d+)\s*/);
+            if(m) return parseInt(m[1], 10);
+            return 45;
+        }
+
+        for(const url of endpoints) {
+            try {
+                // timeout via AbortController (allow longer for model inference)
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+                // Build payload matching server's UserProfile model
+                const payload = {
+                    height: Math.round(userData.height || 0),
+                    weight: Math.round(userData.weight || 0),
+                    free_time: parseFreeTime(userData.time),
+                    fitness_level: userData.activityLevel || (userData.goals && userData.goals.length? userData.goals[0] : 'Intermediate'),
+                    goal: (userData.goals && userData.goals.length) ? userData.goals[0] : 'General'
+                };
+
+                updateDebugPanel({ url, attempt: 'request', payload });
+
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+                clearTimeout(timeout);
+
+                if(!resp.ok) {
+                    console.warn('AI server at', url, 'responded with', resp.status);
+                    updateDebugPanel({ url, status: resp.status, ok: false, note: 'non-OK response' });
+                    continue;
+                }
+
+                const data = await resp.json();
+                updateDebugPanel({ url, status: resp.status, ok: true, body: data });
+
+                // Accept server response as either structured exercises or raw text under 'routine'
+                if(data && Array.isArray(data.exercises) && data.exercises.length > 0) {
+                    planFromServer = data;
+                    break;
+                }
+
+                if(data && typeof data.routine === 'string' && data.routine.trim()) {
+                    const parsed = parseRoutineToExercises(data.routine);
+                    if(parsed.length > 0) {
+                        planFromServer = { exercises: parsed, raw: data.routine };
+                        break;
+                    }
+                }
+
+                console.warn('AI server returned invalid plan at', url);
+                updateDebugPanel({ url, status: resp.status, ok: true, body: data, note: 'invalid plan structure' });
+                continue;
+            } catch(err) {
+                console.warn('Error contacting AI server at', url, err && err.name ? err.name : err);
+                const note = (err && err.name === 'AbortError') ? 'timeout' : 'error';
+                updateDebugPanel({ url, error: String(err), note });
+                if(note === 'timeout') {
+                    // Inform the user that generation can take longer and to wait
+                    showScreenError('AI generation is taking longer than expected (up to 30s). Please wait.');
+                }
+                // try next endpoint
+                continue;
+            }
+        }
+
+        if(planFromServer) {
+            // merge some metadata
+            if(planFromServer.name) userData.name = planFromServer.name;
+            if(planFromServer.time) userData.time = planFromServer.time;
+            if(planFromServer.tdee) userData.tdee = planFromServer.tdee;
+            if(planFromServer.bmr) userData.bmr = planFromServer.bmr;
+            renderResult(planFromServer);
+        } else {
+            console.error('Could not reach AI server at 127.0.0.1:8000');
+            showScreenError('AI server unreachable (127.0.0.1:8000) — showing local plan');
             renderResult();
-            navigate('screen-result');
-            populateMonthYearSelectors();
-            renderCalendar();
-        }, 2000);
+        }
+
+        navigate('screen-result');
+        populateMonthYearSelectors();
+        renderCalendar();
     }
 
     function saveHealthAndContinue() {
@@ -317,36 +650,68 @@
         navigate('screen-time');
     }
 
-    function renderResult() {
+    function renderResult(plan = null) {
+        // If backend provided a plan, use it; otherwise fallback to local generation
+        if(plan && Array.isArray(plan.exercises)) {
+            // Use server-provided values if present, otherwise fall back to current userData
+            document.getElementById('res-name').innerText = plan.name || userData.name;
+            document.getElementById('res-time').innerText = plan.time || userData.time;
+            if(plan.tdee) document.getElementById('tdee-disp').innerText = plan.tdee + ' kcal/day';
+            if(plan.bmr) document.getElementById('bmr-disp').innerText = plan.bmr;
+
+            const list = document.getElementById('exercise-list');
+            list.innerHTML = "";
+            plan.exercises.forEach((ex, i) => {
+                const metaParts = [];
+                if(ex.s) metaParts.push(ex.s);
+                if(ex.r) metaParts.push(ex.r);
+                const meta = metaParts.join(' · ');
+                list.innerHTML += `
+                <div class="exercise-item">
+                    <div class="ex-num">${i+1}</div>
+                    <div class="ex-info" style="flex:1">
+                        <h4>${ex.n}</h4>
+                        <div class="ex-meta">${meta}</div>
+                    </div>
+                </div>`;
+            });
+            return;
+        }
+
+        // Local fallback plan
         document.getElementById('res-name').innerText = userData.name;
         document.getElementById('res-time').innerText = userData.time;
         
         const list = document.getElementById('exercise-list');
         list.innerHTML = "";
-        
-        let exercises = [
-            { n: "Dynamic Warmup", s: "1 SET", r: "5 MIN" },
-        ];
-        
-        if(userData.goals.includes('Hypertrophy') || userData.bmi < 18.5) {
-            exercises.push({ n: "Barbell Squats", s: "4 SETS", r: "8 REPS" });
-            exercises.push({ n: "Incline Press", s: "4 SETS", r: "10 REPS" });
-            exercises.push({ n: "Deadlifts", s: "3 SETS", r: "6 REPS" });
+        // Use the last randomized exercises if available, otherwise create a new randomized set
+        let exercises = [];
+        if(Array.isArray(lastGeneratedExercises) && lastGeneratedExercises.length > 0) {
+            exercises = lastGeneratedExercises;
         } else {
-            exercises.push({ n: "Box Jumps", s: "4 SETS", r: "45 SEC" });
-            exercises.push({ n: "Burpees", s: "3 SETS", r: "15 REPS" });
-            exercises.push({ n: "Sprints", s: "5 SETS", r: "30 SEC" });
+            exercises = getRandomExercises(7).map(n => ({ n, s: '', r: '' }));
+            lastGeneratedExercises = exercises;
         }
-        
-        exercises.push({ n: "Core Plank", s: "3 SETS", r: "FAILURE" });
-        
-        exercises.forEach((ex, i) => {
+
+        // Decide sets per exercise based on user's selected time
+        const minutes = parseTimeToMinutes(userData.time);
+        let setsLabel = '';
+        if(minutes > 30) setsLabel = '3 SETS'; // minimum 3 sets when time > 30
+        else if(minutes >= 15 && minutes <= 30) setsLabel = '2 SETS'; // add 2 sets for 15-30
+        else setsLabel = '1 SET';
+
+        // Always show a Dynamic Warmup at position 1 and then the 7 randomized sequence
+        const displayList = [{ n: 'Dynamic Warmup', s: '1 SET', r: '5 MIN' }].concat(
+            exercises.slice(0, 7).map(ex => ({ n: ex.n, s: ex.s || setsLabel, r: ex.r || '' }))
+        );
+
+        displayList.forEach((ex, i) => {
             list.innerHTML += `
             <div class="exercise-item">
                 <div class="ex-num">${i+1}</div>
                 <div class="ex-info" style="flex:1">
                     <h4>${ex.n}</h4>
-                    <div class="ex-meta">${ex.s} &middot; ${ex.r}</div>
+                    <div class="ex-meta">${ex.s} ${ex.r ? '&middot; ' + ex.r : ''}</div>
                 </div>
             </div>`;
         });
@@ -359,6 +724,7 @@
         timerPhase = 'workout';
         currentSet = 1;
         document.getElementById('timer-phase').innerText = 'WORKOUT SET ' + currentSet;
+        document.getElementById('timer-finish').style.display = 'inline-block';
         updateTimerDisplay();
         startTimer();
     }
@@ -409,6 +775,7 @@
             document.getElementById('timer-resume').style.display = 'none';
             document.getElementById('timer-end').style.display = 'inline-block';
             document.getElementById('timer-start').style.display = 'inline-block';
+            document.getElementById('timer-finish').style.display = 'inline-block';
         } else {
             // Rest period ended, switch back to workout (2 minutes)
             timerPhase = 'workout';
@@ -421,6 +788,7 @@
             document.getElementById('timer-pause').style.display = 'none';
             document.getElementById('timer-resume').style.display = 'none';
             document.getElementById('timer-start').style.display = 'inline-block';
+            document.getElementById('timer-finish').style.display = 'inline-block';
         }
     }
 
@@ -449,6 +817,7 @@
             document.getElementById('timer-pause').style.display = 'none';
             document.getElementById('timer-resume').style.display = 'none';
             document.getElementById('timer-start').style.display = 'inline-block';
+            document.getElementById('timer-finish').style.display = 'inline-block';
         }
     }
 
@@ -550,6 +919,78 @@
         localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
     }
 
+    // Parse raw routine text (from the model) into exercise objects
+    function parseRoutineToExercises(text) {
+        const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const items = [];
+        for(const line of lines) {
+            // consider bullet lines starting with '-' or numbered lists
+            let content = line.replace(/^[-\d\.\)\s]+/, '').trim();
+            if(!content) continue;
+
+            // If line contains 'Answer:' or headings, skip
+            if(/^answer[:\s]/i.test(content) || /^workout routine[:\s]/i.test(content)) continue;
+
+            // Skip model echo of the prompt (e.g. "Height: 168 cm, Weight: 65 kg, ...")
+            const lc = content.toLowerCase();
+            if(lc.includes('height') && lc.includes('weight') && lc.includes('free time')) continue;
+
+            // split into name and detail by first ':'
+            let name = content;
+            let detail = '';
+            const m = content.match(/^([^:]+):\s*(.*)$/);
+            if(m) { name = m[1].trim(); detail = m[2].trim(); }
+
+            // try extract time/reps info from detail
+            let timeMatch = detail.match(/(\d+\s*(?:min|mins|minutes|sec|secs|seconds|reps|rep))/i);
+            let r = timeMatch ? timeMatch[0] : '';
+            let s = detail.replace(timeMatch ? timeMatch[0] : '', '').trim();
+
+            // if no colon-based split, and content is short, keep as name
+            if(!m && content.length > 60) {
+                // long line: split on '-' or '–' if present
+                const parts = content.split(/[-–—]/).map(p => p.trim()).filter(Boolean);
+                if(parts.length > 1) { name = parts[0]; s = parts.slice(1).join(' · '); }
+            }
+
+            items.push({ n: name, s: s || '', r: r || '' });
+        }
+        return items;
+    }
+
+    // Convert time label like '45 Min' to integer minutes
+    function parseTimeToMinutes(t) {
+        if(!t) return 45;
+        const m = String(t).match(/(\d+)/);
+        return m ? parseInt(m[1], 10) : 45;
+    }
+
+    // --- DEBUG PANEL ---
+    const debugAttempts = [];
+    function updateDebugPanel(obj) {
+        debugAttempts.push(Object.assign({ ts: new Date().toISOString() }, obj));
+        const pre = document.getElementById('debug-pre');
+        if(!pre) return;
+        try {
+            pre.innerText = debugAttempts.map((a,i) => `#${i+1} ${a.ts}\n${JSON.stringify(a, null, 2)}`).join('\n\n');
+        } catch(e) {
+            pre.innerText = String(debugAttempts);
+        }
+    }
+
+    function toggleDebug() {
+        const p = document.getElementById('debug-panel');
+        if(!p) return;
+        const btn = document.querySelector('button[onclick="toggleDebug()"]');
+        if(p.style.display === 'none' || p.style.display === '') {
+            p.style.display = 'block';
+            if(btn) btn.innerText = 'Hide Debug';
+        } else {
+            p.style.display = 'none';
+            if(btn) btn.innerText = 'Show Debug';
+        }
+    }
+
     // --- LOGOUT ---
     function logout() {
         if(confirm('Are you sure you want to logout?')) {
@@ -566,3 +1007,63 @@
         }
     }
 
+    // --- WORKOUT COMPLETION ---
+    function endWorkout() {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        
+        // Calculate total calories burned
+        // Formula: (BMR / 1440) * Total Time(minutes) * Intensity Factor
+        // Intensity Factor: HIGH = 1.8
+        const bmr = userData.bmr || 1500; // Default BMR if not calculated
+        const caloriesPerMinute = (bmr / 1440) * 1.8; // High intensity
+        const totalMinutes = currentSet * 2.75; // 2 min workout + 0.75 min rest per set (45 sec = 0.75 min)
+        const caloriesBurned = Math.round(caloriesPerMinute * totalMinutes);
+        
+        // Display modal with results
+        document.getElementById('modal-calories').innerText = caloriesBurned;
+        document.getElementById('workout-complete-modal').style.display = 'flex';
+    }
+
+    function closeWorkoutModal() {
+        document.getElementById('workout-complete-modal').style.display = 'none';
+        // Reset timer for next workout
+        timerSeconds = 120;
+        timerPhase = 'workout';
+        currentSet = 1;
+        updateTimerDisplay();
+        document.getElementById('timer-start').style.display = 'inline-block';
+        document.getElementById('timer-pause').style.display = 'none';
+        document.getElementById('timer-resume').style.display = 'none';
+        document.getElementById('timer-end').style.display = 'none';
+        document.getElementById('timer-finish').style.display = 'none';
+        document.getElementById('timer-phase').innerText = 'WORKOUT SET 1';
+    }
+
+    // Attach input listeners so any change in profile triggers re-randomization
+    (function attachAutoRandomizeListeners(){
+        const fields = ['inp-age','inp-gender','inp-ft','inp-in','inp-cm','inp-weight'];
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            el.addEventListener('input', () => {
+                // update userData from inputs
+                if(id === 'inp-age') userData.age = parseInt(el.value || 0, 10);
+                if(id === 'inp-gender') userData.gender = el.value || '';
+                if(id === 'inp-ft' || id === 'inp-in' || id === 'inp-cm') {
+                    // If metric field present, compute height when possible
+                    if(document.getElementById('div-cm').style.display !== 'none') {
+                        const cm = parseFloat((document.getElementById('inp-cm') || {}).value || 0);
+                        if(cm) userData.height = cm;
+                    } else {
+                        const ft = parseFloat((document.getElementById('inp-ft') || {}).value || 0);
+                        const inch = parseFloat((document.getElementById('inp-in') || {}).value || 0);
+                        if(ft) userData.height = (ft * 30.48) + ( (inch || 0) * 2.54 );
+                    }
+                }
+                if(id === 'inp-weight') userData.weight = parseFloat(el.value || 0);
+                randomizeIfReady(false);
+            });
+            el.addEventListener('change', () => randomizeIfReady(false));
+        });
+    })();
