@@ -1,4 +1,4 @@
-# FitBuddy AI - Elite Training Protocol
+# FitBuddy - AI-based Training Tool
 
 **Discipline through personalization, not motivation.**
 
