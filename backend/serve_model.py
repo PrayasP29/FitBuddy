@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
-BASE_MODEL = "microsoft/phi-2"  # or whatever you fine-tuned
+BASE_MODEL = "microsoft/phi-2" 
 ADAPTER_PATH = "C:/Users/LOQ/fitness_project/phi-fitness-final"
 
 tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
