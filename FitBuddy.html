@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitBuddy AI - Elite Training</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Oswald:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- CSS VARIABLES & RESET --- */
+        :root {
+            --primary: #E50914; /* Netflix/Premium Red */
+            --dark: #0a0a0a;
+            --glass-panel: rgba(20, 20, 20, 0.85); /* Darker glass for premium feel */
+            --text-main: #ffffff;
+            --text-muted: #aaaaaa;
+            --radius: 2px; /* Minimal radius for modern sharp look */
+            --glow: 0 0 20px rgba(229, 9, 20, 0.3);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            /* Dark blurred gym background */
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), 
+                        url('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-main);
+            backdrop-filter: blur(8px); /* Blur effect on background */
+        }
+
+        /* --- APP CONTAINER --- */
+        .app-container {
+            width: 100%;
+            max-width: 420px;
+            height: 90vh; /* Full height feel on mobile */
+            max-height: 800px;
+            background: var(--glass-panel);
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
+            transition: all 0.5s ease;
+        }
+
+        /* Hero Mode: Removes background box for the landing page */
+        .app-container.hero-mode {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            justify-content: center;
+        }
+
+        /* --- TYPOGRAPHY --- */
+        h1, h2, h3 {
+            font-family: 'Oswald', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            color: white;
+        }
+
+        h1 { 
+            font-size: 42px; 
+            font-weight: 700; 
+            font-style: italic;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        h2 { font-size: 22px; font-weight: 500; letter-spacing: 1px; }
+        
+        p { 
+            color: var(--text-muted); 
+            font-size: 14px; 
+            line-height: 1.6; 
+            margin-bottom: 25px; 
+        }
+
+        /* Tagline Style */
+        .tagline {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 300;
+            font-size: 14px;
+            color: rgba(255,255,255,0.8);
+            letter-spacing: 1px;
+            margin-top: 10px;
+            text-transform: uppercase;
+            border-top: 1px solid var(--primary);
+            padding-top: 15px;
+            display: inline-block;
+        }
+
+        /* --- CUSTOM 3D DUMBBELL LOGO --- */
+        .logo-3d {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #444, #111);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px auto;
+            box-shadow: 
+                inset 2px 2px 5px rgba(255,255,255,0.1),
+                5px 10px 20px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        /* CSS Shape for Dumbbell */
+        .dumbbell-shape {
+            width: 50px;
+            height: 12px;
+            background: #999;
+            position: relative;
+            border-radius: 4px;
+            box-shadow: inset 0 -2px 5px rgba(0,0,0,0.5);
+        }
+        .dumbbell-shape::before, .dumbbell-shape::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 28px;
+            background: linear-gradient(to right, #666, #333);
+            top: -8px;
+            border-radius: 2px;
+            border-left: 1px solid #777;
+        }
+        .dumbbell-shape::before { left: 0; }
+        .dumbbell-shape::after { right: 0; }
+
+        /* --- NAVIGATION --- */
+        .header-nav {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            position: absolute;
+            top: 0;
+            width: 100%;
+            z-index: 10;
+        }
+        
+        .back-btn {
+            background: none;
+            border: none;
+            font-family: 'Oswald', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.5);
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .back-btn:hover { color: white; }
+
+        /* --- SCREENS --- */
+        .screen {
+            display: none;
+            flex: 1;
+            padding: 80px 30px 40px 30px; /* Top padding for header */
+            flex-direction: column;
+            animation: fadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .screen.active { display: flex; }
+        
+        /* Special centered alignment for Welcome */
+        #screen-welcome {
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+            align-items: center;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* --- INPUTS --- */
+        input, textarea {
+            width: 100%;
+            padding: 18px;
+            border: 1px solid #333;
+            background: rgba(0,0,0,0.3);
+            color: white;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 16px;
+            margin-bottom: 20px;
+            border-radius: var(--radius);
+            transition: all 0.3s;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(0,0,0,0.6);
+        }
+
+        /* --- BUTTONS --- */
+        .btn {
+            width: 100%;
+            padding: 18px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            font-family: 'Oswald', sans-serif;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            cursor: pointer;
+            border-radius: var(--radius);
+            margin-top: auto;
+            transition: all 0.3s;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+        .btn:hover { 
+            background: #b2060f; 
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.4);
+        }
+
+        /* Link Text */
+        .link-text {
+            text-align: center;
+            font-size: 12px;
+            margin-top: 20px;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .link-text:hover { color: white; text-decoration: underline; }
+
+        /* --- SELECTION CHIPS --- */
+        .selection-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .chip {
+            padding: 20px 10px;
+            border: 1px solid #333;
+            background: rgba(255,255,255,0.05);
+            text-align: center;
+            cursor: pointer;
+            font-family: 'Oswald', sans-serif;
+            font-size: 13px;
+            text-transform: uppercase;
+            border-radius: var(--radius);
+            transition: all 0.3s;
+            color: #ddd;
+        }
+        .chip:hover { background: rgba(255,255,255,0.1); border-color: #555; }
+        .chip.selected {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+            box-shadow: var(--glow);
+        }
+
+        /* --- TOGGLES --- */
+        .toggle-container {
+            display: flex;
+            background: rgba(0,0,0,0.3);
+            padding: 4px;
+            border-radius: var(--radius);
+            margin-bottom: 25px;
+            border: 1px solid #333;
+        }
+        .toggle-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            color: #777;
+            cursor: pointer;
+            font-family: 'Oswald', sans-serif;
+            text-transform: uppercase;
+            transition: 0.3s;
+        }
+        .toggle-btn.active {
+            background: #222;
+            color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        /* --- RESULTS --- */
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-top: 2px solid var(--primary);
+            margin-bottom: 25px;
+        }
+        .stat-val { font-family: 'Oswald', sans-serif; font-size: 20px; color: white; display:block; }
+        .stat-lbl { font-size: 10px; text-transform: uppercase; color: #777; margin-top: 5px; letter-spacing: 1px; }
+
+        .exercise-item {
+            display: flex;
+            align-items: center;
+            padding: 18px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .ex-num {
+            font-family: 'Oswald', sans-serif;
+            font-size: 24px;
+            color: #333;
+            margin-right: 20px;
+            width: 30px;
+        }
+        .ex-info h4 { color: white; margin-bottom: 5px; font-weight: 500; font-size: 16px; }
+        .ex-meta { font-size: 11px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- LOADER --- */
+        .loader-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        .pulse-circle {
+            width: 60px;
+            height: 60px;
+            background: var(--primary);
+            border-radius: 50%;
+            margin-bottom: 30px;
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 0 0 rgba(229, 9, 20, 0.7);
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(229, 9, 20, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(229, 9, 20, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(229, 9, 20, 0); }
+        }
+
+        /* --- VALIDATION MESSAGE --- */
+        .error-msg {
+            color: #ff4444;
+            font-size: 12px;
+            margin-top: -15px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* --- TIMER SECTION --- */
+        .timer-container {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid var(--primary);
+            padding: 30px 20px;
+            text-align: center;
+            margin-bottom: 25px;
+            border-radius: var(--radius);
+        }
+
+        .timer-display {
+            font-family: 'Oswald', sans-serif;
+            font-size: 56px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 15px;
+            text-shadow: 0 0 20px rgba(229, 9, 20, 0.3);
+        }
+
+        .timer-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #777;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+
+        .timer-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .timer-btn {
+            padding: 12px 20px;
+            background: rgba(229, 9, 20, 0.2);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            font-family: 'Oswald', sans-serif;
+            font-size: 12px;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: var(--radius);
+            transition: all 0.3s;
+        }
+
+        .timer-btn:hover {
+            background: rgba(229, 9, 20, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .timer-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* --- CALENDAR SECTION --- */
+        .calendar-container {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid #333;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-radius: var(--radius);
+        }
+
+        .calendar-header {
+            font-family: 'Oswald', sans-serif;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            color: #777;
+            letter-spacing: 1px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid #333;
+            font-size: 12px;
+            border-radius: 2px;
+            color: #aaa;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .calendar-day:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .calendar-day.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: var(--glow);
+        }
+
+        .calendar-day.header {
+            background: transparent;
+            border: none;
+            font-weight: 600;
+            color: #777;
+            font-size: 10px;
+        }
+
+        /* --- LOGOUT BUTTON --- */
+        .logout-btn {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid #ff4444;
+            color: #ff4444;
+            font-family: 'Oswald', sans-serif;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border-radius: var(--radius);
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 68, 68, 0.2);
+            transform: translateY(-2px);
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="app-container hero-mode" id="app">
+    
+    <div class="screen active" id="screen-welcome">
+        
+        <div class="logo-3d">
+            <div class="dumbbell-shape"></div>
+        </div>
+
+        <h1>FITBUDDY AI</h1>
+        <div class="tagline">
+            Discipline through personalization,<br>not motivation.
+        </div>
+
+        <div style="margin-top: 60px; width: 100%; max-width: 280px;">
+            <button class="btn" onclick="goToAuth()">Get Started</button>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-auth">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-welcome', true)">← Back</button></div>
+        <h2 id="auth-title">Welcome Back</h2>
+        <p id="auth-sub">Sign in to your account</p>
+        
+        <div id="auth-error" class="error-msg" style="display:none;"></div>
+        <input type="email" id="auth-email" placeholder="EMAIL ADDRESS">
+        <input type="password" id="auth-pass" placeholder="PASSWORD">
+        
+        <button class="btn" onclick="handleAuth()">Sign In</button>
+        
+        <div class="link-text" onclick="toggleAuthMode()">
+            <span id="auth-toggle-text">Don't have an account? Sign Up</span>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-name">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-auth')">← Back</button></div>
+        <h2>Identify</h2>
+        <p>Enter your name for the system.</p>
+        <input type="text" id="inp-name" placeholder="FULL NAME">
+        <button class="btn" onclick="validateNext('inp-name', 'screen-age')">Continue</button>
+    </div>
+
+    <div class="screen" id="screen-age">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-name')">← Back</button></div>
+        <h2>Parameters</h2>
+        <p>How old are you, <span id="disp-name" style="color:white">Agent</span>?</p>
+        <input type="number" id="inp-age" placeholder="AGE">
+        <button class="btn" onclick="validateNext('inp-age', 'screen-height')">Continue</button>
+    </div>
+
+    <div class="screen" id="screen-height">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-age')">← Back</button></div>
+        <h2>Height</h2>
+        <div class="toggle-container">
+            <button class="toggle-btn active" onclick="setHeightMode('ft')">FT / IN</button>
+            <button class="toggle-btn" onclick="setHeightMode('cm')">CM</button>
+        </div>
+        
+        <div id="div-ft" style="display: flex; gap: 10px;">
+            <input type="number" id="inp-ft" placeholder="5" style="flex:1">
+            <input type="number" id="inp-in" placeholder="10" style="flex:1">
+        </div>
+        <div id="div-cm" style="display: none;">
+            <input type="number" id="inp-cm" placeholder="178">
+        </div>
+
+        <button class="btn" onclick="saveHeight()">Continue</button>
+    </div>
+
+    <div class="screen" id="screen-weight">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-height')">← Back</button></div>
+        <h2>Weight</h2>
+        <p>Current body weight (kg).</p>
+        <input type="number" id="inp-weight" placeholder="KG">
+        <button class="btn" onclick="calcBMI()">Analyze</button>
+    </div>
+
+    <div class="screen" id="screen-bmi">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-weight')">← Back</button></div>
+        <h2>Analysis</h2>
+        <div style="text-align: center; margin: 40px 0;">
+            <h1 id="bmi-disp" style="color: var(--primary); font-size: 64px;">0.0</h1>
+            <p id="bmi-cat" style="color: white; letter-spacing: 2px; text-transform: uppercase;">CALCULATING...</p>
+        </div>
+        <p id="bmi-desc">System analysis pending...</p>
+        <button class="btn" onclick="navigate('screen-goals')">Set Objectives</button>
+    </div>
+
+    <div class="screen" id="screen-goals">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-bmi')">← Back</button></div>
+        <h2>Objectives</h2>
+        <p>Select all targets.</p>
+        <div class="selection-grid">
+            <div class="chip" onclick="toggleChip(this)">Weight Loss</div>
+            <div class="chip" onclick="toggleChip(this)">Hypertrophy</div>
+            <div class="chip" onclick="toggleChip(this)">Endurance</div>
+            <div class="chip" onclick="toggleChip(this)">Athleticism</div>
+        </div>
+        <button class="btn" onclick="navigate('screen-time')">Continue</button>
+    </div>
+
+    <div class="screen" id="screen-time">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-goals')">← Back</button></div>
+        <h2>Allocation</h2>
+        <p>Daily time availability.</p>
+        <div class="selection-grid">
+            <div class="chip single" onclick="selectSingle(this)">15 Min</div>
+            <div class="chip single" onclick="selectSingle(this)">30 Min</div>
+            <div class="chip single" onclick="selectSingle(this)">45 Min</div>
+            <div class="chip single" onclick="selectSingle(this)">60 Min</div>
+        </div>
+        <button class="btn" onclick="navigate('screen-health')">Continue</button>
+    </div>
+
+    <div class="screen" id="screen-health">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-time')">← Back</button></div>
+        <h2>Constraints</h2>
+        <p>Injuries or medical conditions.</p>
+        <textarea id="inp-health" rows="4" placeholder="e.g. Lower back pain..."></textarea>
+        <button class="btn" onclick="generatePlan()">Generate Protocol</button>
+    </div>
+
+    <div class="screen" id="screen-loading">
+        <div class="loader-container">
+            <div class="pulse-circle"></div>
+            <h2>Processing</h2>
+            <p>Constructing AI protocol...</p>
+        </div>
+    </div>
+
+    <div class="screen" id="screen-result" style="overflow-y: auto;">
+        <div class="header-nav">
+            <h2 style="margin:0; font-size: 16px; color:#777;">FITBUDDY AI</h2>
+        </div>
+        <div style="margin-top: 20px;">
+            <p style="font-size: 12px; margin-bottom: 5px;">PROTOCOL FOR</p>
+            <h2 style="color:white; font-size: 28px; margin-bottom: 20px;" id="res-name">USER</h2>
+        </div>
+        
+        <div class="stats-row">
+            <div class="stat-item">
+                <span class="stat-val" style="color: var(--primary);">HIGH</span>
+                <span class="stat-label">Intensity</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val" id="res-time">45 M</span>
+                <span class="stat-label">Duration</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val">350</span>
+                <span class="stat-label">Kcal</span>
+            </div>
+        </div>
+
+        <h3 style="font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; color:#777;">WORKOUT TIMER</h3>
+        
+        <div class="timer-container">
+            <div class="timer-display" id="timer-display">45:00</div>
+            <div class="timer-label" id="timer-phase">WARM UP</div>
+            <div class="timer-buttons">
+                <button class="timer-btn" id="timer-start" onclick="startTimer()">Start</button>
+                <button class="timer-btn" id="timer-pause" onclick="pauseTimer()" style="display:none;">Pause</button>
+                <button class="timer-btn" id="timer-resume" onclick="resumeTimer()" style="display:none;">Resume</button>
+                <button class="timer-btn" id="timer-end" onclick="endSet()" style="display:none;">End</button>
+            </div>
+        </div>
+
+        <h3 style="font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; color:#777;">WORKOUT HISTORY</h3>
+        
+        <div class="calendar-container">
+            <div class="calendar-header">📅 Activity Tracker</div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+
+        <h3 style="font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; color:#777;">SEQUENCE</h3>
+        
+        <div id="exercise-list"></div>
+
+        <button class="btn" onclick="startWorkout()">Begin Session</button>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+        <div class="link-text" onclick="location.reload()">Reset System</div>
+    </div>
+
+</div>
+
+<script>
+    // --- APP LOGIC ---
+    
+    // Initial Setup
+    const app = document.getElementById('app');
+    let isMetric = false;
+    let isLoginMode = true;
+    let timerInterval = null;
+    let timerSeconds = 2700; // 45 minutes in seconds
+    let timerRunning = false;
+    let timerPhase = 'workout'; // 'workout' or 'rest'
+    let currentSet = 0;
+
+    const userData = {
+        name: 'User',
+        age: 0,
+        height: 0,
+        weight: 0,
+        bmi: 0,
+        goals: [],
+        time: '45 Min',
+        health: '',
+        email: '',
+        workoutDays: [] // Track workout dates
+    };
+
+    // Registered accounts storage (in real app, use backend)
+    const accounts = JSON.parse(localStorage.getItem('fitbuddyAccounts')) || {};
+
+    // --- EMAIL VALIDATION ---
+    function validateEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    // --- PASSWORD VALIDATION ---
+    function validatePassword(password) {
+        // Must be 8+ chars, contain uppercase and special character
+        if (password.length < 8) return false;
+        if (!/[A-Z]/.test(password)) return false;
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) return false;
+        return true;
+    }
+
+    // Navigation
+    function navigate(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+        
+        // Toggle Hero Mode CSS
+        if(screenId === 'screen-welcome') {
+            app.classList.add('hero-mode');
+        } else {
+            app.classList.remove('hero-mode');
+        }
+    }
+
+    function goBack(screenId, isWelcome = false) {
+        navigate(screenId);
+    }
+
+    // Auth Flow
+    function goToAuth() { navigate('screen-auth'); }
+    
+    function toggleAuthMode() {
+        isLoginMode = !isLoginMode;
+        document.getElementById('auth-title').innerText = isLoginMode ? "Welcome Back" : "Create Account";
+        document.getElementById('auth-sub').innerText = isLoginMode ? "Sign in to your account" : "Create new account to get started";
+        document.getElementById('auth-toggle-text').innerText = isLoginMode ? "Don't have an account? Sign Up" : "Already have an account? Sign In";
+        document.getElementById('auth-error').style.display = 'none';
+    }
+
+    function handleAuth() {
+        const email = document.getElementById('auth-email').value;
+        const pass = document.getElementById('auth-pass').value;
+        const errorDiv = document.getElementById('auth-error');
+
+        if(!email || !pass) {
+            errorDiv.innerText = "EMAIL AND PASSWORD REQUIRED";
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        // Email format validation
+        if(!validateEmail(email)) {
+            errorDiv.innerText = "INVALID EMAIL FORMAT (use: local@domain.com)";
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        if(isLoginMode) {
+            // Sign In
+            if(!accounts[email] || accounts[email].password !== pass) {
+                errorDiv.innerText = "INVALID EMAIL OR PASSWORD";
+                errorDiv.style.display = 'block';
+                return;
+            }
+            userData.email = email;
+            userData.name = accounts[email].name;
+            userData.workoutDays = accounts[email].workoutDays || [];
+            errorDiv.style.display = 'none';
+            navigate('screen-result');
+            renderResult();
+            renderCalendar();
+        } else {
+            // Sign Up
+            if(!validatePassword(pass)) {
+                errorDiv.innerText = "PASSWORD: MIN 8 CHARS, 1 UPPERCASE, 1 SPECIAL CHAR (!@#$%^&*...)";
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if(accounts[email]) {
+                errorDiv.innerText = "ACCOUNT ALREADY EXISTS";
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Create new account and proceed to setup
+            accounts[email] = {
+                password: pass,
+                name: 'User',
+                workoutDays: []
+            };
+            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+            userData.email = email;
+            errorDiv.style.display = 'none';
+            navigate('screen-name');
+        }
+    }
+
+    // Data Flow
+    function validateNext(inputId, nextId) {
+        const val = document.getElementById(inputId).value;
+        if(!val) return alert("INPUT REQUIRED");
+        
+        if(inputId === 'inp-name') {
+            userData.name = val.toUpperCase();
+            accounts[userData.email].name = userData.name;
+            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+            document.getElementById('disp-name').innerText = userData.name;
+        }
+        navigate(nextId);
+    }
+
+    function setHeightMode(mode) {
+        isMetric = (mode === 'cm');
+        document.getElementById('div-ft').style.display = isMetric ? 'none' : 'flex';
+        document.getElementById('div-cm').style.display = isMetric ? 'block' : 'none';
+        document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+    }
+
+    function saveHeight() {
+        if(isMetric) {
+            const cm = document.getElementById('inp-cm').value;
+            if(!cm) return alert("ENTER HEIGHT");
+            userData.height = parseFloat(cm);
+        } else {
+            const ft = document.getElementById('inp-ft').value;
+            const inch = document.getElementById('inp-in').value;
+            if(!ft) return alert("ENTER HEIGHT");
+            userData.height = (parseFloat(ft) * 30.48) + (parseFloat(inch || 0) * 2.54);
+        }
+        navigate('screen-weight');
+    }
+
+    function calcBMI() {
+        const w = document.getElementById('inp-weight').value;
+        if(!w) return alert("ENTER WEIGHT");
+        userData.weight = parseFloat(w);
+        
+        const h_m = userData.height / 100;
+        const bmi = userData.weight / (h_m * h_m);
+        userData.bmi = bmi.toFixed(1);
+        
+        document.getElementById('bmi-disp').innerText = userData.bmi;
+        let cat = "";
+        let desc = "";
+        
+        if(bmi < 18.5) { cat = "UNDERWEIGHT"; desc = "Focus: Caloric Surplus & Hypertrophy"; }
+        else if(bmi < 25) { cat = "OPTIMAL"; desc = "Focus: Maintenance & Performance"; }
+        else { cat = "OVERWEIGHT"; desc = "Focus: High Intensity Output"; }
+        
+        document.getElementById('bmi-cat').innerText = cat;
+        document.getElementById('bmi-desc').innerText = desc;
+        navigate('screen-bmi');
+    }
+
+    // Chips
+    function toggleChip(el) {
+        el.classList.toggle('selected');
+        const val = el.innerText;
+        if(el.classList.contains('selected')) userData.goals.push(val);
+        else userData.goals = userData.goals.filter(g => g !== val);
+    }
+    
+    function selectSingle(el) {
+        el.parentNode.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+        userData.time = el.innerText;
+    }
+
+    // Generation
+    function generatePlan() {
+        navigate('screen-loading');
+        setTimeout(() => {
+            renderResult();
+            navigate('screen-result');
+            renderCalendar();
+        }, 2000);
+    }
+
+    function renderResult() {
+        document.getElementById('res-name').innerText = userData.name;
+        document.getElementById('res-time').innerText = userData.time;
+        
+        const list = document.getElementById('exercise-list');
+        list.innerHTML = "";
+        
+        let exercises = [
+            { n: "Dynamic Warmup", s: "1 SET", r: "5 MIN" },
+        ];
+        
+        if(userData.goals.includes('Hypertrophy') || userData.bmi < 18.5) {
+            exercises.push({ n: "Barbell Squats", s: "4 SETS", r: "8 REPS" });
+            exercises.push({ n: "Incline Press", s: "4 SETS", r: "10 REPS" });
+            exercises.push({ n: "Deadlifts", s: "3 SETS", r: "6 REPS" });
+        } else {
+            exercises.push({ n: "Box Jumps", s: "4 SETS", r: "45 SEC" });
+            exercises.push({ n: "Burpees", s: "3 SETS", r: "15 REPS" });
+            exercises.push({ n: "Sprints", s: "5 SETS", r: "30 SEC" });
+        }
+        
+        exercises.push({ n: "Core Plank", s: "3 SETS", r: "FAILURE" });
+        
+        exercises.forEach((ex, i) => {
+            list.innerHTML += `
+            <div class="exercise-item">
+                <div class="ex-num">${i+1}</div>
+                <div class="ex-info" style="flex:1">
+                    <h4>${ex.n}</h4>
+                    <div class="ex-meta">${ex.s} &middot; ${ex.r}</div>
+                </div>
+            </div>`;
+        });
+    }
+
+    // --- TIMER FUNCTIONALITY ---
+    function startWorkout() {
+        alert('🏋️ Training Session Initiated. Use the timer to track your sets!');
+        timerSeconds = 45 * 60; // 45 seconds for first demo
+        timerPhase = 'workout';
+        currentSet = 1;
+        updateTimerDisplay();
+        startTimer();
+    }
+
+    function startTimer() {
+        if(timerRunning) return;
+        timerRunning = true;
+        document.getElementById('timer-start').style.display = 'none';
+        document.getElementById('timer-pause').style.display = 'inline-block';
+        document.getElementById('timer-end').style.display = 'inline-block';
+        
+        timerInterval = setInterval(() => {
+            if(timerSeconds > 0) {
+                timerSeconds--;
+                updateTimerDisplay();
+            } else {
+                completePhase();
+            }
+        }, 1000);
+    }
+
+    function pauseTimer() {
+        timerRunning = false;
+        clearInterval(timerInterval);
+        document.getElementById('timer-pause').style.display = 'none';
+        document.getElementById('timer-resume').style.display = 'inline-block';
+    }
+
+    function resumeTimer() {
+        startTimer();
+        document.getElementById('timer-resume').style.display = 'none';
+        document.getElementById('timer-pause').style.display = 'inline-block';
+    }
+
+    function endSet() {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        
+        if(timerPhase === 'workout') {
+            // Switch to rest period
+            timerPhase = 'rest';
+            timerSeconds = 45; // 45 second rest
+            currentSet++;
+            document.getElementById('timer-phase').innerText = '🔄 REST PERIOD';
+        } else {
+            // Switch back to workout
+            timerPhase = 'workout';
+            timerSeconds = 45;
+            document.getElementById('timer-phase').innerText = 'SET ' + currentSet;
+        }
+        
+        updateTimerDisplay();
+        
+        document.getElementById('timer-pause').style.display = 'none';
+        document.getElementById('timer-resume').style.display = 'none';
+        document.getElementById('timer-start').style.display = 'inline-block';
+    }
+
+    function completePhase() {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        
+        if(timerPhase === 'workout') {
+            timerPhase = 'rest';
+            timerSeconds = 45;
+            document.getElementById('timer-phase').innerText = '🔄 REST PERIOD';
+            updateTimerDisplay();
+            alert('⏱️ SET COMPLETE! Rest for 45 seconds.');
+            startTimer();
+        } else {
+            timerPhase = 'workout';
+            timerSeconds = 45;
+            currentSet++;
+            document.getElementById('timer-phase').innerText = 'SET ' + currentSet;
+            updateTimerDisplay();
+            alert('💪 Rest Complete! Ready for next set?');
+        }
+        
+        document.getElementById('timer-pause').style.display = 'none';
+        document.getElementById('timer-resume').style.display = 'none';
+        document.getElementById('timer-start').style.display = 'inline-block';
+    }
+
+    function updateTimerDisplay() {
+        const minutes = Math.floor(timerSeconds / 60);
+        const seconds = timerSeconds % 60;
+        const display = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        document.getElementById('timer-display').innerText = display;
+    }
+
+    // --- CALENDAR FUNCTIONALITY ---
+    function renderCalendar() {
+        const today = new Date();
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        const firstDay = new Date(currentYear, currentMonth, 1);
+        const lastDay = new Date(currentYear, currentMonth + 1, 0);
+        
+        const grid = document.getElementById('calendar-grid');
+        grid.innerHTML = '';
+        
+        // Day headers
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        dayNames.forEach(day => {
+            const header = document.createElement('div');
+            header.className = 'calendar-day header';
+            header.innerText = day;
+            grid.appendChild(header);
+        });
+        
+        // Empty cells before month starts
+        for(let i = 0; i < firstDay.getDay(); i++) {
+            const empty = document.createElement('div');
+            empty.className = 'calendar-day';
+            empty.style.background = 'transparent';
+            empty.style.border = 'none';
+            grid.appendChild(empty);
+        }
+        
+        // Days of month
+        for(let day = 1; day <= lastDay.getDate(); day++) {
+            const cell = document.createElement('div');
+            cell.className = 'calendar-day';
+            cell.innerText = day;
+            
+            const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            if(userData.workoutDays.includes(dateStr)) {
+                cell.classList.add('active');
+            }
+            
+            cell.onclick = () => toggleWorkoutDay(dateStr, cell);
+            grid.appendChild(cell);
+        }
+    }
+
+    function toggleWorkoutDay(dateStr, element) {
+        const index = userData.workoutDays.indexOf(dateStr);
+        if(index > -1) {
+            userData.workoutDays.splice(index, 1);
+            element.classList.remove('active');
+        } else {
+            userData.workoutDays.push(dateStr);
+            element.classList.add('active');
+        }
+        // Save to account
+        accounts[userData.email].workoutDays = userData.workoutDays;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+    }
+
+    // --- LOGOUT ---
+    function logout() {
+        if(confirm('Are you sure you want to logout?')) {
+            userData.email = '';
+            clearInterval(timerInterval);
+            navigate('screen-welcome');
+            app.classList.add('hero-mode');
+            // Reset timer
+            timerSeconds = 2700;
+            timerRunning = false;
+            timerPhase = 'workout';
+            updateTimerDisplay();
+        }
+    }
+
+</script>
+
+</body>
+</html>
