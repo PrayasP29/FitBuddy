@@ -206,6 +206,11 @@
             background: rgba(0,0,0,0.6);
         }
 
+        input.input-error {
+            border-color: #ff4444 !important;
+            background: rgba(255, 68, 68, 0.1) !important;
+        }
+
         /* --- BUTTONS --- */
         .btn {
             width: 100%;
@@ -494,6 +499,7 @@
 <body>
 
 <div class="app-container hero-mode" id="app">
+    <div id="screen-error" class="error-msg" style="display:none; padding: 0 30px;"></div>
     
     <div class="screen active" id="screen-welcome">
         
@@ -546,6 +552,15 @@
         <h2>Parameters</h2>
         <p>How old are you, <span id="disp-name" style="color:white">Agent</span>?</p>
         <input type="number" id="inp-age" placeholder="AGE">
+        <div id="inp-age-error" class="error-msg" style="display:none;"></div>
+        <label style="font-size:12px; color:#aaa; margin-bottom:6px;">Gender</label>
+        <select id="inp-gender" style="width:100%; padding:12px; margin-bottom:16px; background:rgba(0,0,0,0.3); border:1px solid #333; color:#fff; border-radius:2px;">
+            <option value="" disabled selected>Select gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+        </select>
+        <div id="inp-gender-error" class="error-msg" style="display:none;"></div>
         <button class="btn" onclick="validateNext('inp-age', 'screen-height')">Continue</button>
     </div>
 
@@ -561,9 +576,11 @@
             <input type="number" id="inp-ft" placeholder="5" style="flex:1">
             <input type="number" id="inp-in" placeholder="10" style="flex:1">
         </div>
+        <div id="inp-ft-error" class="error-msg" style="display:none;"></div>
         <div id="div-cm" style="display: none;">
             <input type="number" id="inp-cm" placeholder="178">
         </div>
+        <div id="inp-cm-error" class="error-msg" style="display:none;"></div>
 
         <button class="btn" onclick="saveHeight()">Continue</button>
     </div>
@@ -573,6 +590,7 @@
         <h2>Weight</h2>
         <p>Current body weight (kg).</p>
         <input type="number" id="inp-weight" placeholder="KG">
+        <div id="inp-weight-error" class="error-msg" style="display:none;"></div>
         <button class="btn" onclick="calcBMI()">Analyze</button>
     </div>
 
@@ -738,6 +756,7 @@
     // Navigation
     function navigate(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        clearScreenError();
         document.getElementById(screenId).classList.add('active');
         
         // Toggle Hero Mode CSS
@@ -746,6 +765,34 @@
         } else {
             app.classList.remove('hero-mode');
         }
+    }
+
+    function showScreenError(msg, inputId = null) {
+        const d = document.getElementById('screen-error');
+        if(d) {
+            d.innerText = msg.toUpperCase();
+            d.style.display = 'block';
+        } else {
+            alert(msg);
+        }
+        // Highlight the specific input with error if provided
+        if(inputId) {
+            const inp = document.getElementById(inputId);
+            if(inp) inp.classList.add('input-error');
+            // Also show error message div below input if it exists
+            const errDiv = document.getElementById(inputId + '-error');
+            if(errDiv) {
+                errDiv.innerText = 'PLEASE FILL THE REQUIRED FIELD';
+                errDiv.style.display = 'block';
+            }
+        }
+    }
+
+    function clearScreenError() {
+        const d = document.getElementById('screen-error');
+        if(d) d.style.display = 'none';
+        document.querySelectorAll('input.input-error, select.input-error').forEach(el => el.classList.remove('input-error'));
+        document.querySelectorAll('[id$="-error"]').forEach(el => el.style.display = 'none');
     }
 
     function goBack(screenId, isWelcome = false) {
@@ -900,7 +947,34 @@
 
     function validateNext(inputId, nextId) {
         const val = document.getElementById(inputId).value;
-        if(!val) return alert("INPUT REQUIRED");
+        if(!val) {
+            showScreenError('please fill missing field', inputId);
+            return;
+        }
+
+        // Special handling for age screen: save age and gender
+        if(inputId === 'inp-age') {
+            const ageVal = parseInt(val, 10);
+            if(isNaN(ageVal) || ageVal <= 0) {
+                showScreenError('please enter a valid age', 'inp-age');
+                return;
+            }
+            userData.age = ageVal;
+            const genderSel = document.getElementById('inp-gender');
+            if(!genderSel.value) {
+                showScreenError('please fill missing field', 'inp-gender');
+                return;
+            }
+            if(genderSel) userData.gender = genderSel.value || '';
+            // persist to account if logged in
+            if(userData.email) {
+                accounts[userData.email].age = userData.age;
+                accounts[userData.email].gender = userData.gender || '';
+                localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+            }
+        }
+
+        clearScreenError();
         navigate(nextId);
     }
 
@@ -915,23 +989,24 @@
     function saveHeight() {
         if(isMetric) {
             const cm = document.getElementById('inp-cm').value;
-            if(!cm) return alert("ENTER HEIGHT");
+            if(!cm) { showScreenError('please fill missing field', 'inp-cm'); return; }
             userData.height = parseFloat(cm);
         } else {
             const ft = document.getElementById('inp-ft').value;
             const inch = document.getElementById('inp-in').value;
-            if(!ft) return alert("ENTER HEIGHT");
+            if(!ft) { showScreenError('please fill missing field', 'inp-ft'); return; }
             userData.height = (parseFloat(ft) * 30.48) + (parseFloat(inch || 0) * 2.54);
         }
         // Save to account
         accounts[userData.email].height = userData.height;
         localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        clearScreenError();
         navigate('screen-weight');
     }
 
     function calcBMI() {
         const w = document.getElementById('inp-weight').value;
-        if(!w) return alert("ENTER WEIGHT");
+        if(!w) { showScreenError('please fill missing field', 'inp-weight'); return; }
         userData.weight = parseFloat(w);
         
         const h_m = userData.height / 100;
@@ -953,6 +1028,7 @@
         
         document.getElementById('bmi-cat').innerText = cat;
         document.getElementById('bmi-desc').innerText = desc;
+        clearScreenError();
         navigate('screen-bmi');
     }
 
