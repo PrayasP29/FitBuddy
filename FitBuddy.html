@@ -532,9 +532,13 @@
     <div class="screen" id="screen-name">
         <div class="header-nav"><button class="back-btn" onclick="goBack('screen-auth')">← Back</button></div>
         <h2>Identify</h2>
-        <p>Enter your name for the system.</p>
-        <input type="text" id="inp-name" placeholder="FULL NAME">
-        <button class="btn" onclick="validateNext('inp-name', 'screen-age')">Continue</button>
+        <p>Enter your name details.</p>
+        <input type="text" id="inp-firstname" placeholder="FIRST NAME *">
+        <div id="firstname-error" class="error-msg" style="display:none;"></div>
+        <input type="text" id="inp-middlename" placeholder="MIDDLE NAME (OPTIONAL)">
+        <input type="text" id="inp-lastname" placeholder="LAST NAME *">
+        <div id="lastname-error" class="error-msg" style="display:none;"></div>
+        <button class="btn" onclick="validateName()">Continue</button>
     </div>
 
     <div class="screen" id="screen-age">
@@ -831,16 +835,51 @@
     }
 
     // Data Flow
+    function validateName() {
+        const firstName = document.getElementById('inp-firstname').value.trim();
+        const middleName = document.getElementById('inp-middlename').value.trim();
+        const lastName = document.getElementById('inp-lastname').value.trim();
+        const firstNameError = document.getElementById('firstname-error');
+        const lastNameError = document.getElementById('lastname-error');
+
+        let hasError = false;
+
+        // Check first name
+        if(!firstName) {
+            firstNameError.innerText = "PLEASE ENTER THE REQUIRED FIELD";
+            firstNameError.style.display = 'block';
+            hasError = true;
+        } else {
+            firstNameError.style.display = 'none';
+        }
+
+        // Check last name
+        if(!lastName) {
+            lastNameError.innerText = "PLEASE ENTER THE REQUIRED FIELD";
+            lastNameError.style.display = 'block';
+            hasError = true;
+        } else {
+            lastNameError.style.display = 'none';
+        }
+
+        // If there are errors, don't proceed
+        if(hasError) return;
+
+        // Combine names
+        let fullName = firstName;
+        if(middleName) fullName += " " + middleName;
+        fullName += " " + lastName;
+
+        userData.name = fullName.toUpperCase();
+        accounts[userData.email].name = userData.name;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        document.getElementById('disp-name').innerText = userData.name;
+        navigate('screen-age');
+    }
+
     function validateNext(inputId, nextId) {
         const val = document.getElementById(inputId).value;
         if(!val) return alert("INPUT REQUIRED");
-        
-        if(inputId === 'inp-name') {
-            userData.name = val.toUpperCase();
-            accounts[userData.email].name = userData.name;
-            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
-            document.getElementById('disp-name').innerText = userData.name;
-        }
         navigate(nextId);
     }
 
