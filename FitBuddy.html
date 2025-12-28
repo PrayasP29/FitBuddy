@@ -682,6 +682,7 @@
     <div class="screen" id="screen-result" style="overflow-y: auto;">
         <div class="header-nav">
             <h2 style="margin:0; font-size: 16px; color:#777;">FITBUDDY AI</h2>
+            <button class="back-btn" style="margin-left:auto; font-size:12px; padding:6px 8px;" onclick="toggleDebug()">Show Debug</button>
         </div>
         <div style="margin-top: 20px;">
             <p style="font-size: 12px; margin-bottom: 5px;">PROTOCOL FOR</p>
@@ -732,6 +733,11 @@
                 </div>
             </div>
             <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+
+        <div id="debug-panel" style="display:none; background:rgba(0,0,0,0.6); border:1px solid #333; padding:12px; margin:16px 0; border-radius:4px; max-height:160px; overflow:auto; font-size:12px; color:#ddd;">
+            <div style="font-weight:700; margin-bottom:6px;">Debug — Last API Interaction</div>
+            <pre id="debug-pre" style="white-space:pre-wrap; word-break:break-word; color:#ddd; font-size:12px; margin:0;">No server activity yet.</pre>
         </div>
 
         <button class="btn" onclick="startWorkout()">Begin Session</button>
@@ -1151,22 +1157,111 @@
         }
     }
 
-    // Generation
-    function generatePlan() {
+    // Generation - call FastAPI LLM endpoint and render result
+    async function generatePlan() {
         navigate('screen-loading');
-        setTimeout(() => {
-            // Save health information to account
-            // ensure latest health textarea is saved if present
-            if(document.getElementById('inp-health')) {
-                userData.health = document.getElementById('inp-health').value || userData.health || '';
+
+        // Save latest health info
+        if(document.getElementById('inp-health')) {
+            userData.health = document.getElementById('inp-health').value || userData.health || '';
+        }
+        accounts[userData.email].health = userData.health;
+        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+
+        // Attempt to call FastAPI endpoint (use /api/routine)
+        const endpoints = [ 'http://127.0.0.1:8000/api/routine' ];
+        const timeoutMs = 60000; // increase timeout to 30s for model generation
+
+        let planFromServer = null;
+
+        function parseFreeTime(t) {
+            if(!t) return 45;
+            // Accept formats like '45 Min', '30 Min', '60 Min' or '45 Min'
+            const m = String(t).match(/(\d+)\s*/);
+            if(m) return parseInt(m[1], 10);
+            return 45;
+        }
+
+        for(const url of endpoints) {
+            try {
+                // timeout via AbortController (allow longer for model inference)
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+                // Build payload matching server's UserProfile model
+                const payload = {
+                    height: Math.round(userData.height || 0),
+                    weight: Math.round(userData.weight || 0),
+                    free_time: parseFreeTime(userData.time),
+                    fitness_level: userData.activityLevel || (userData.goals && userData.goals.length? userData.goals[0] : 'Intermediate'),
+                    goal: (userData.goals && userData.goals.length) ? userData.goals[0] : 'General'
+                };
+
+                updateDebugPanel({ url, attempt: 'request', payload });
+
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+                clearTimeout(timeout);
+
+                if(!resp.ok) {
+                    console.warn('AI server at', url, 'responded with', resp.status);
+                    updateDebugPanel({ url, status: resp.status, ok: false, note: 'non-OK response' });
+                    continue;
+                }
+
+                const data = await resp.json();
+                updateDebugPanel({ url, status: resp.status, ok: true, body: data });
+
+                // Accept server response as either structured exercises or raw text under 'routine'
+                if(data && Array.isArray(data.exercises) && data.exercises.length > 0) {
+                    planFromServer = data;
+                    break;
+                }
+
+                if(data && typeof data.routine === 'string' && data.routine.trim()) {
+                    const parsed = parseRoutineToExercises(data.routine);
+                    if(parsed.length > 0) {
+                        planFromServer = { exercises: parsed, raw: data.routine };
+                        break;
+                    }
+                }
+
+                console.warn('AI server returned invalid plan at', url);
+                updateDebugPanel({ url, status: resp.status, ok: true, body: data, note: 'invalid plan structure' });
+                continue;
+            } catch(err) {
+                console.warn('Error contacting AI server at', url, err && err.name ? err.name : err);
+                const note = (err && err.name === 'AbortError') ? 'timeout' : 'error';
+                updateDebugPanel({ url, error: String(err), note });
+                if(note === 'timeout') {
+                    // Inform the user that generation can take longer and to wait
+                    showScreenError('AI generation is taking longer than expected (up to 30s). Please wait.');
+                }
+                // try next endpoint
+                continue;
             }
-            accounts[userData.email].health = userData.health;
-            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        }
+
+        if(planFromServer) {
+            // merge some metadata
+            if(planFromServer.name) userData.name = planFromServer.name;
+            if(planFromServer.time) userData.time = planFromServer.time;
+            if(planFromServer.tdee) userData.tdee = planFromServer.tdee;
+            if(planFromServer.bmr) userData.bmr = planFromServer.bmr;
+            renderResult(planFromServer);
+        } else {
+            console.error('Could not reach AI server at 127.0.0.1:8000');
+            showScreenError('AI server unreachable (127.0.0.1:8000) — showing local plan');
             renderResult();
-            navigate('screen-result');
-            populateMonthYearSelectors();
-            renderCalendar();
-        }, 2000);
+        }
+
+        navigate('screen-result');
+        populateMonthYearSelectors();
+        renderCalendar();
     }
 
     function saveHealthAndContinue() {
@@ -1179,7 +1274,35 @@
         navigate('screen-time');
     }
 
-    function renderResult() {
+    function renderResult(plan = null) {
+        // If backend provided a plan, use it; otherwise fallback to local generation
+        if(plan && Array.isArray(plan.exercises)) {
+            // Use server-provided values if present, otherwise fall back to current userData
+            document.getElementById('res-name').innerText = plan.name || userData.name;
+            document.getElementById('res-time').innerText = plan.time || userData.time;
+            if(plan.tdee) document.getElementById('tdee-disp').innerText = plan.tdee + ' kcal/day';
+            if(plan.bmr) document.getElementById('bmr-disp').innerText = plan.bmr;
+
+            const list = document.getElementById('exercise-list');
+            list.innerHTML = "";
+            plan.exercises.forEach((ex, i) => {
+                const metaParts = [];
+                if(ex.s) metaParts.push(ex.s);
+                if(ex.r) metaParts.push(ex.r);
+                const meta = metaParts.join(' · ');
+                list.innerHTML += `
+                <div class="exercise-item">
+                    <div class="ex-num">${i+1}</div>
+                    <div class="ex-info" style="flex:1">
+                        <h4>${ex.n}</h4>
+                        <div class="ex-meta">${meta}</div>
+                    </div>
+                </div>`;
+            });
+            return;
+        }
+
+        // Local fallback plan
         document.getElementById('res-name').innerText = userData.name;
         document.getElementById('res-time').innerText = userData.time;
         
@@ -1414,6 +1537,71 @@
         // Save to account
         accounts[userData.email].workoutDays = userData.workoutDays;
         localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+    }
+
+    // Parse raw routine text (from the model) into exercise objects
+    function parseRoutineToExercises(text) {
+        const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const items = [];
+        for(const line of lines) {
+            // consider bullet lines starting with '-' or numbered lists
+            let content = line.replace(/^[-\d\.\)\s]+/, '').trim();
+            if(!content) continue;
+
+            // If line contains 'Answer:' or headings, skip
+            if(/^answer[:\s]/i.test(content) || /^workout routine[:\s]/i.test(content)) continue;
+
+            // Skip model echo of the prompt (e.g. "Height: 168 cm, Weight: 65 kg, ...")
+            const lc = content.toLowerCase();
+            if(lc.includes('height') && lc.includes('weight') && lc.includes('free time')) continue;
+
+            // split into name and detail by first ':'
+            let name = content;
+            let detail = '';
+            const m = content.match(/^([^:]+):\s*(.*)$/);
+            if(m) { name = m[1].trim(); detail = m[2].trim(); }
+
+            // try extract time/reps info from detail
+            let timeMatch = detail.match(/(\d+\s*(?:min|mins|minutes|sec|secs|seconds|reps|rep))/i);
+            let r = timeMatch ? timeMatch[0] : '';
+            let s = detail.replace(timeMatch ? timeMatch[0] : '', '').trim();
+
+            // if no colon-based split, and content is short, keep as name
+            if(!m && content.length > 60) {
+                // long line: split on '-' or '–' if present
+                const parts = content.split(/[-–—]/).map(p => p.trim()).filter(Boolean);
+                if(parts.length > 1) { name = parts[0]; s = parts.slice(1).join(' · '); }
+            }
+
+            items.push({ n: name, s: s || '', r: r || '' });
+        }
+        return items;
+    }
+
+    // --- DEBUG PANEL ---
+    const debugAttempts = [];
+    function updateDebugPanel(obj) {
+        debugAttempts.push(Object.assign({ ts: new Date().toISOString() }, obj));
+        const pre = document.getElementById('debug-pre');
+        if(!pre) return;
+        try {
+            pre.innerText = debugAttempts.map((a,i) => `#${i+1} ${a.ts}\n${JSON.stringify(a, null, 2)}`).join('\n\n');
+        } catch(e) {
+            pre.innerText = String(debugAttempts);
+        }
+    }
+
+    function toggleDebug() {
+        const p = document.getElementById('debug-panel');
+        if(!p) return;
+        const btn = document.querySelector('button[onclick="toggleDebug()"]');
+        if(p.style.display === 'none' || p.style.display === '') {
+            p.style.display = 'block';
+            if(btn) btn.innerText = 'Hide Debug';
+        } else {
+            p.style.display = 'none';
+            if(btn) btn.innerText = 'Show Debug';
+        }
     }
 
     // --- LOGOUT ---
