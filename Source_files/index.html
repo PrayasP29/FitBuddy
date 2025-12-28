@@ -4,24 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FitBuddy AI - Elite Training</title>
-
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Oswald:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet">
 </head>
-
 <body>
 
 <div class="app-container hero-mode" id="app">
-
-    <!-- WELCOME SCREEN -->
+    <div id="screen-error" class="error-msg" style="display:none; padding: 0 30px;"></div>
+    
     <div class="screen active" id="screen-welcome">
+        
         <div class="logo-3d">
             <div class="dumbbell-shape"></div>
         </div>
 
         <h1>FITBUDDY AI</h1>
-
         <div class="tagline">
             Discipline through personalization,<br>not motivation.
         </div>
@@ -31,168 +30,160 @@
         </div>
     </div>
 
-    <!-- AUTH SCREEN -->
     <div class="screen" id="screen-auth">
-        <div class="header-nav">
-            <button class="back-btn" onclick="goBack('screen-welcome', true)">← Back</button>
-        </div>
-
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-welcome', true)">← Back</button></div>
         <h2 id="auth-title">Welcome Back</h2>
         <p id="auth-sub">Sign in to your account</p>
-
+        
         <div id="auth-error" class="error-msg" style="display:none;"></div>
-
         <input type="email" id="auth-email" placeholder="EMAIL ADDRESS">
         <input type="password" id="auth-pass" placeholder="PASSWORD">
         <input type="password" id="auth-confirm" placeholder="CONFIRM PASSWORD" style="display:none;">
-
         <div id="confirm-error" class="error-msg" style="display:none;"></div>
-
+        
         <button class="btn" onclick="handleAuth()">Sign In</button>
-
+        
         <div class="link-text" onclick="toggleAuthMode()">
             <span id="auth-toggle-text">Don't have an account? Sign Up</span>
         </div>
     </div>
 
-    <!-- NAME SCREEN -->
     <div class="screen" id="screen-name">
-        <div class="header-nav">
-            <button class="back-btn" onclick="goBack('screen-auth')">← Back</button>
-        </div>
-
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-auth')">← Back</button></div>
         <h2>Identify</h2>
         <p>Enter your name details.</p>
-
         <input type="text" id="inp-firstname" placeholder="FIRST NAME *">
         <div id="firstname-error" class="error-msg" style="display:none;"></div>
-
         <input type="text" id="inp-middlename" placeholder="MIDDLE NAME (OPTIONAL)">
-
         <input type="text" id="inp-lastname" placeholder="LAST NAME *">
         <div id="lastname-error" class="error-msg" style="display:none;"></div>
-
         <button class="btn" onclick="validateName()">Continue</button>
     </div>
 
-    <!-- AGE SCREEN -->
     <div class="screen" id="screen-age">
-        <div class="header-nav">
-            <button class="back-btn" onclick="goBack('screen-name')">← Back</button>
-        </div>
-
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-name')">← Back</button></div>
         <h2>Parameters</h2>
-        <p>How old are you, <span id="disp-name">Agent</span>?</p>
-
+        <p>How old are you, <span id="disp-name" style="color:white">Agent</span>?</p>
         <input type="number" id="inp-age" placeholder="AGE">
+        <div id="inp-age-error" class="error-msg" style="display:none;"></div>
+        <label style="font-size:12px; color:#aaa; margin-bottom:6px;">Gender</label>
+        <select id="inp-gender" style="width:100%; padding:12px; margin-bottom:16px; background:rgba(0,0,0,0.3); border:1px solid #333; color:#fff; border-radius:2px;">
+            <option value="" disabled selected>Select gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+        </select>
+        <div id="inp-gender-error" class="error-msg" style="display:none;"></div>
         <button class="btn" onclick="validateNext('inp-age', 'screen-height')">Continue</button>
     </div>
 
-    <!-- HEIGHT SCREEN -->
     <div class="screen" id="screen-height">
-        <div class="header-nav">
-            <button class="back-btn" onclick="goBack('screen-age')">← Back</button>
-        </div>
-
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-age')">← Back</button></div>
         <h2>Height</h2>
-
         <div class="toggle-container">
             <button class="toggle-btn active" onclick="setHeightMode('ft')">FT / IN</button>
             <button class="toggle-btn" onclick="setHeightMode('cm')">CM</button>
         </div>
-
-        <div id="div-ft">
-            <input type="number" id="inp-ft" placeholder="5">
-            <input type="number" id="inp-in" placeholder="10">
+        
+        <div id="div-ft" style="display: flex; gap: 10px;">
+            <input type="number" id="inp-ft" placeholder="5" style="flex:1">
+            <input type="number" id="inp-in" placeholder="10" style="flex:1">
         </div>
-
-        <div id="div-cm" style="display:none;">
+        <div id="inp-ft-error" class="error-msg" style="display:none;"></div>
+        <div id="div-cm" style="display: none;">
             <input type="number" id="inp-cm" placeholder="178">
         </div>
+        <div id="inp-cm-error" class="error-msg" style="display:none;"></div>
 
         <button class="btn" onclick="saveHeight()">Continue</button>
     </div>
 
-    <!-- WEIGHT SCREEN -->
     <div class="screen" id="screen-weight">
-        <div class="header-nav">
-            <button class="back-btn" onclick="goBack('screen-height')">← Back</button>
-        </div>
-
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-height')">← Back</button></div>
         <h2>Weight</h2>
         <p>Current body weight (kg).</p>
-
         <input type="number" id="inp-weight" placeholder="KG">
+        <div id="inp-weight-error" class="error-msg" style="display:none;"></div>
         <button class="btn" onclick="calcBMI()">Analyze</button>
     </div>
 
-    <!-- BMI SCREEN -->
     <div class="screen" id="screen-bmi">
-        <div class="header-nav">
-            <button class="back-btn" onclick="goBack('screen-weight')">← Back</button>
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-weight')">← Back</button></div>
+        <h2>BMI</h2>
+        <p>Body Mass Index Analysis.</p>
+        <div style="text-align: center; margin: 40px 0;">
+            <h1 id="bmi-disp" style="color: var(--primary); font-size: 64px;">0.0</h1>
+            <p id="bmi-cat" style="color: white; letter-spacing: 2px; text-transform: uppercase;">CALCULATING...</p>
         </div>
-
-        <h2>Analysis</h2>
-
-        <h1 id="bmi-disp">0.0</h1>
-        <p id="bmi-cat">CALCULATING...</p>
         <p id="bmi-desc">System analysis pending...</p>
-
-        <button class="btn" onclick="navigate('screen-goals')">Set Objectives</button>
+        <button class="btn" onclick="calculateBMR()">Calculate Metabolism</button>
     </div>
 
-    <!-- GOALS SCREEN -->
-    <div class="screen" id="screen-goals">
-        <div class="header-nav">
-            <button class="back-btn" onclick="goBack('screen-bmi')">← Back</button>
+    <div class="screen" id="screen-bmr" style="overflow-y: auto;">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-bmi')">← Back</button></div>
+        <h2>Metabolism</h2>
+        <p>Basal Metabolic Rate & Maintenance Calories.</p>
+        <div style="text-align: center; margin: 40px 0;">
+            <h1 id="bmr-disp" style="color: var(--primary); font-size: 56px;">0</h1>
+            <p style="color: white; letter-spacing: 2px; text-transform: uppercase; margin-top: 10px;">BASAL METABOLIC RATE</p>
+        </div>
+        
+        <label style="font-size:12px; color:#aaa; margin-bottom:10px; display: block;">Activity Level</label>
+        <div class="selection-grid">
+            <div class="chip" onclick="selectActivityLevel(this, 1.2)">Sedentary</div>
+            <div class="chip" onclick="selectActivityLevel(this, 1.375)">Lightly Active</div>
+            <div class="chip" onclick="selectActivityLevel(this, 1.55)">Moderately Active</div>
+            <div class="chip" onclick="selectActivityLevel(this, 1.725)">Very Active</div>
+            <div class="chip" onclick="selectActivityLevel(this, 2.0)">Extra Active</div>
         </div>
 
+        <div style="background: rgba(229, 9, 20, 0.15); border-left: 3px solid var(--primary); padding: 15px; margin: 25px 0; border-radius: 2px;">
+            <p style="color: #aaa; font-size: 12px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">📊 Maintenance Calories</p>
+            <h3 id="tdee-disp" style="color: var(--primary); font-size: 32px; margin: 0;">0</h3>
+            <p style="color: #999; font-size: 11px; margin-top: 5px;">Daily caloric intake for weight maintenance</p>
+        </div>
+
+        <button class="btn" onclick="navigate('screen-goals')">Continue</button>
+    </div>
+
+    <div class="screen" id="screen-goals">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-bmr')">← Back</button></div>
         <h2>Objectives</h2>
         <p>Select all targets.</p>
-
         <div class="selection-grid">
             <div class="chip" onclick="toggleChip(this)">Weight Loss</div>
             <div class="chip" onclick="toggleChip(this)">Hypertrophy</div>
             <div class="chip" onclick="toggleChip(this)">Endurance</div>
             <div class="chip" onclick="toggleChip(this)">Athleticism</div>
+            <div class="chip" onclick="toggleChip(this)">Strength Training</div>
+            <div class="chip" onclick="toggleChip(this)">Muscular Hypertrophy</div>
+            <div class="chip" onclick="toggleChip(this)">Cardiovascular Endurance</div>
+            <div class="chip" onclick="toggleChip(this)">Weight Gain</div>
         </div>
-
         <button class="btn" onclick="navigate('screen-health')">Continue</button>
     </div>
 
-    <!-- HEALTH SCREEN -->
-    <div class="screen" id="screen-health">
-        <div class="header-nav">
-            <button class="back-btn" onclick="goBack('screen-goals')">← Back</button>
-        </div>
-
-        <h2>Constraints</h2>
-        <p>Injuries or medical conditions.</p>
-
-        <textarea id="inp-health" rows="4" placeholder="e.g. Lower back pain..."></textarea>
-        <button class="btn" onclick="saveHealthAndContinue()">Continue</button>
-    </div>
-
-    <!-- TIME SCREEN -->
     <div class="screen" id="screen-time">
-        <div class="header-nav">
-            <button class="back-btn" onclick="goBack('screen-health')">← Back</button>
-        </div>
-
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-health')">← Back</button></div>
         <h2>Allocation</h2>
         <p>Daily time availability.</p>
-
         <div class="selection-grid">
             <div class="chip single" onclick="selectSingle(this)">15 Min</div>
             <div class="chip single" onclick="selectSingle(this)">30 Min</div>
             <div class="chip single" onclick="selectSingle(this)">45 Min</div>
             <div class="chip single" onclick="selectSingle(this)">60 Min</div>
         </div>
-
         <button class="btn" onclick="generatePlan()">Continue</button>
     </div>
 
-    <!-- LOADING SCREEN -->
+    <div class="screen" id="screen-health">
+        <div class="header-nav"><button class="back-btn" onclick="goBack('screen-goals')">← Back</button></div>
+        <h2>Constraints</h2>
+        <p>Injuries or medical conditions.</p>
+        <textarea id="inp-health" rows="4" placeholder="e.g. Lower back pain..."></textarea>
+        <button class="btn" onclick="saveHealthAndContinue()">Continue</button>
+    </div>
+
     <div class="screen" id="screen-loading">
         <div class="loader-container">
             <div class="pulse-circle"></div>
@@ -201,18 +192,83 @@
         </div>
     </div>
 
-    <!-- RESULT SCREEN -->
-    <div class="screen" id="screen-result">
+    <div class="screen" id="screen-result" style="overflow-y: auto;">
         <div class="header-nav">
-            <h2>FITBUDDY AI</h2>
+            <h2 style="margin:0; font-size: 16px; color:#777;">FITBUDDY AI</h2>
+            <button class="back-btn" style="margin-left:auto; font-size:12px; padding:6px 8px;" onclick="toggleDebug()">Show Debug</button>
+        </div>
+        <div style="margin-top: 20px;">
+            <p style="font-size: 12px; margin-bottom: 5px;">PROTOCOL FOR</p>
+            <h2 style="color:white; font-size: 28px; margin-bottom: 20px;" id="res-name">USER</h2>
+        </div>
+        
+        <div class="stats-row">
+            <div class="stat-item">
+                <span class="stat-val" style="color: var(--primary);">HIGH</span>
+                <span class="stat-label">Intensity</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val" id="res-time">45 M</span>
+                <span class="stat-label">Duration</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val">350</span>
+                <span class="stat-label">Kcal</span>
+            </div>
         </div>
 
-        <h2 id="res-name">USER</h2>
+        <h3 style="font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; color:#777;">WORKOUT TIMER</h3>
+        
+        <div class="timer-container">
+            <div class="timer-display" id="timer-display">02:00</div>
+            <div class="timer-label" id="timer-phase">WORKOUT SET 1</div>
+            <div class="timer-buttons">
+                <button class="timer-btn" id="timer-start" onclick="startTimer()">Start</button>
+                <button class="timer-btn" id="timer-pause" onclick="pauseTimer()" style="display:none;">Pause</button>
+                <button class="timer-btn" id="timer-resume" onclick="resumeTimer()" style="display:none;">Resume</button>
+                <button class="timer-btn" id="timer-end" onclick="endSet()" style="display:none;">End</button>
+                <button class="timer-btn" id="timer-finish" onclick="endWorkout()" style="display:none; background: var(--primary); color: white; border-color: var(--primary);">Finish Workout</button>
+            </div>
+        </div>
+
+        <h3 style="font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; color:#777;">SEQUENCE</h3>
+
         <div id="exercise-list"></div>
+
+        <h3 style="font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-top:20px; margin-bottom: 10px; color:#777;">WORKOUT HISTORY</h3>
+
+        <div class="calendar-container">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div class="calendar-header">📅 Activity Tracker</div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <select id="calendar-month-select" style="background:transparent; color:#ddd; border:1px solid #333; padding:8px; border-radius:2px;"></select>
+                    <select id="calendar-year-select" style="background:transparent; color:#ddd; border:1px solid #333; padding:8px; border-radius:2px;"></select>
+                </div>
+            </div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+
+        <div id="debug-panel" style="display:none; background:rgba(0,0,0,0.6); border:1px solid #333; padding:12px; margin:16px 0; border-radius:4px; max-height:160px; overflow:auto; font-size:12px; color:#ddd;">
+            <div style="font-weight:700; margin-bottom:6px;">Debug — Last API Interaction</div>
+            <pre id="debug-pre" style="white-space:pre-wrap; word-break:break-word; color:#ddd; font-size:12px; margin:0;">No server activity yet.</pre>
+        </div>
 
         <button class="btn" onclick="startWorkout()">Begin Session</button>
         <button class="logout-btn" onclick="logout()">Logout</button>
         <div class="link-text" onclick="location.reload()">Reset System</div>
+    </div>
+
+    <div id="workout-complete-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background: var(--glass-panel); border: 1px solid rgba(255,255,255,0.1); padding:40px; text-align:center; border-radius:4px; max-width:350px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);">
+            <h2 style="font-size:28px; margin-bottom:20px; color:white;">🎉 Well Done!</h2>
+            <p style="color:#aaa; font-size:14px; margin-bottom:30px; line-height:1.6;">Thanks for taking care of your fitness and staying committed to your goals.</p>
+            <div style="background:rgba(229, 9, 20, 0.15); padding:25px; margin:25px 0; border-radius:4px; border-left:3px solid var(--primary);">
+                <p style="color:#aaa; font-size:12px; text-transform:uppercase; margin-bottom:10px; letter-spacing:1px;">Total Calories Burned</p>
+                <h1 id="modal-calories" style="color:var(--primary); font-size:48px; margin:0;">0</h1>
+                <p style="color:#999; font-size:11px; margin-top:8px;">kcal</p>
+            </div>
+            <button class="btn" onclick="closeWorkoutModal()">Back to Dashboard</button>
+        </div>
     </div>
 
 </div>
