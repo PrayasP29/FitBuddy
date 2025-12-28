@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitBuddy AI - Elite Training</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Oswald:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="app-container hero-mode" id="app">
+
+    <!-- WELCOME SCREEN -->
+    <div class="screen active" id="screen-welcome">
+        <div class="logo-3d">
+            <div class="dumbbell-shape"></div>
+        </div>
+
+        <h1>FITBUDDY AI</h1>
+
+        <div class="tagline">
+            Discipline through personalization,<br>not motivation.
+        </div>
+
+        <div style="margin-top: 60px; width: 100%; max-width: 280px;">
+            <button class="btn" onclick="goToAuth()">Get Started</button>
+        </div>
+    </div>
+
+    <!-- AUTH SCREEN -->
+    <div class="screen" id="screen-auth">
+        <div class="header-nav">
+            <button class="back-btn" onclick="goBack('screen-welcome', true)">← Back</button>
+        </div>
+
+        <h2 id="auth-title">Welcome Back</h2>
+        <p id="auth-sub">Sign in to your account</p>
+
+        <div id="auth-error" class="error-msg" style="display:none;"></div>
+
+        <input type="email" id="auth-email" placeholder="EMAIL ADDRESS">
+        <input type="password" id="auth-pass" placeholder="PASSWORD">
+        <input type="password" id="auth-confirm" placeholder="CONFIRM PASSWORD" style="display:none;">
+
+        <div id="confirm-error" class="error-msg" style="display:none;"></div>
+
+        <button class="btn" onclick="handleAuth()">Sign In</button>
+
+        <div class="link-text" onclick="toggleAuthMode()">
+            <span id="auth-toggle-text">Don't have an account? Sign Up</span>
+        </div>
+    </div>
+
+    <!-- NAME SCREEN -->
+    <div class="screen" id="screen-name">
+        <div class="header-nav">
+            <button class="back-btn" onclick="goBack('screen-auth')">← Back</button>
+        </div>
+
+        <h2>Identify</h2>
+        <p>Enter your name details.</p>
+
+        <input type="text" id="inp-firstname" placeholder="FIRST NAME *">
+        <div id="firstname-error" class="error-msg" style="display:none;"></div>
+
+        <input type="text" id="inp-middlename" placeholder="MIDDLE NAME (OPTIONAL)">
+
+        <input type="text" id="inp-lastname" placeholder="LAST NAME *">
+        <div id="lastname-error" class="error-msg" style="display:none;"></div>
+
+        <button class="btn" onclick="validateName()">Continue</button>
+    </div>
+
+    <!-- AGE SCREEN -->
+    <div class="screen" id="screen-age">
+        <div class="header-nav">
+            <button class="back-btn" onclick="goBack('screen-name')">← Back</button>
+        </div>
+
+        <h2>Parameters</h2>
+        <p>How old are you, <span id="disp-name">Agent</span>?</p>
+
+        <input type="number" id="inp-age" placeholder="AGE">
+        <button class="btn" onclick="validateNext('inp-age', 'screen-height')">Continue</button>
+    </div>
+
+    <!-- HEIGHT SCREEN -->
+    <div class="screen" id="screen-height">
+        <div class="header-nav">
+            <button class="back-btn" onclick="goBack('screen-age')">← Back</button>
+        </div>
+
+        <h2>Height</h2>
+
+        <div class="toggle-container">
+            <button class="toggle-btn active" onclick="setHeightMode('ft')">FT / IN</button>
+            <button class="toggle-btn" onclick="setHeightMode('cm')">CM</button>
+        </div>
+
+        <div id="div-ft">
+            <input type="number" id="inp-ft" placeholder="5">
+            <input type="number" id="inp-in" placeholder="10">
+        </div>
+
+        <div id="div-cm" style="display:none;">
+            <input type="number" id="inp-cm" placeholder="178">
+        </div>
+
+        <button class="btn" onclick="saveHeight()">Continue</button>
+    </div>
+
+    <!-- WEIGHT SCREEN -->
+    <div class="screen" id="screen-weight">
+        <div class="header-nav">
+            <button class="back-btn" onclick="goBack('screen-height')">← Back</button>
+        </div>
+
+        <h2>Weight</h2>
+        <p>Current body weight (kg).</p>
+
+        <input type="number" id="inp-weight" placeholder="KG">
+        <button class="btn" onclick="calcBMI()">Analyze</button>
+    </div>
+
+    <!-- BMI SCREEN -->
+    <div class="screen" id="screen-bmi">
+        <div class="header-nav">
+            <button class="back-btn" onclick="goBack('screen-weight')">← Back</button>
+        </div>
+
+        <h2>Analysis</h2>
+
+        <h1 id="bmi-disp">0.0</h1>
+        <p id="bmi-cat">CALCULATING...</p>
+        <p id="bmi-desc">System analysis pending...</p>
+
+        <button class="btn" onclick="navigate('screen-goals')">Set Objectives</button>
+    </div>
+
+    <!-- GOALS SCREEN -->
+    <div class="screen" id="screen-goals">
+        <div class="header-nav">
+            <button class="back-btn" onclick="goBack('screen-bmi')">← Back</button>
+        </div>
+
+        <h2>Objectives</h2>
+        <p>Select all targets.</p>
+
+        <div class="selection-grid">
+            <div class="chip" onclick="toggleChip(this)">Weight Loss</div>
+            <div class="chip" onclick="toggleChip(this)">Hypertrophy</div>
+            <div class="chip" onclick="toggleChip(this)">Endurance</div>
+            <div class="chip" onclick="toggleChip(this)">Athleticism</div>
+        </div>
+
+        <button class="btn" onclick="navigate('screen-health')">Continue</button>
+    </div>
+
+    <!-- HEALTH SCREEN -->
+    <div class="screen" id="screen-health">
+        <div class="header-nav">
+            <button class="back-btn" onclick="goBack('screen-goals')">← Back</button>
+        </div>
+
+        <h2>Constraints</h2>
+        <p>Injuries or medical conditions.</p>
+
+        <textarea id="inp-health" rows="4" placeholder="e.g. Lower back pain..."></textarea>
+        <button class="btn" onclick="saveHealthAndContinue()">Continue</button>
+    </div>
+
+    <!-- TIME SCREEN -->
+    <div class="screen" id="screen-time">
+        <div class="header-nav">
+            <button class="back-btn" onclick="goBack('screen-health')">← Back</button>
+        </div>
+
+        <h2>Allocation</h2>
+        <p>Daily time availability.</p>
+
+        <div class="selection-grid">
+            <div class="chip single" onclick="selectSingle(this)">15 Min</div>
+            <div class="chip single" onclick="selectSingle(this)">30 Min</div>
+            <div class="chip single" onclick="selectSingle(this)">45 Min</div>
+            <div class="chip single" onclick="selectSingle(this)">60 Min</div>
+        </div>
+
+        <button class="btn" onclick="generatePlan()">Continue</button>
+    </div>
+
+    <!-- LOADING SCREEN -->
+    <div class="screen" id="screen-loading">
+        <div class="loader-container">
+            <div class="pulse-circle"></div>
+            <h2>Processing</h2>
+            <p>Constructing AI protocol...</p>
+        </div>
+    </div>
+
+    <!-- RESULT SCREEN -->
+    <div class="screen" id="screen-result">
+        <div class="header-nav">
+            <h2>FITBUDDY AI</h2>
+        </div>
+
+        <h2 id="res-name">USER</h2>
+        <div id="exercise-list"></div>
+
+        <button class="btn" onclick="startWorkout()">Begin Session</button>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+        <div class="link-text" onclick="location.reload()">Reset System</div>
+    </div>
+
+</div>
+
+</body>
+</html>
