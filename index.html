@@ -350,6 +350,25 @@
             100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(229, 9, 20, 0); }
         }
 
+        /* Enhanced loading visuals */
+        .loading-visual { display:flex; flex-direction:column; align-items:center; gap:12px; }
+        .loading-ring {
+            width:72px; height:72px; border-radius:50%;
+            border:4px solid rgba(255,255,255,0.08);
+            border-top-color: var(--primary);
+            animation: spin 1s linear infinite;
+            display:flex; align-items:center; justify-content:center;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-dots { display:flex; gap:8px; margin-top:6px; }
+        .loading-dots span { width:10px; height:10px; background:var(--primary); border-radius:50%; opacity:0.15; animation: dots 1s infinite; }
+        .loading-dots span:nth-child(1) { animation-delay: 0s; }
+        .loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes dots { 0% { opacity:0.15; transform:translateY(0);} 50% { opacity:1; transform:translateY(-6px);} 100% { opacity:0.15; transform:translateY(0);} }
+
         /* --- VALIDATION MESSAGE --- */
         .error-msg {
             color: #ff4444;
@@ -673,9 +692,14 @@
 
     <div class="screen" id="screen-loading">
         <div class="loader-container">
-            <div class="pulse-circle"></div>
-            <h2>Processing</h2>
-            <p>Constructing AI protocol...</p>
+            <div class="loading-visual">
+                <div class="loading-ring" aria-hidden="true">
+                    <div class="pulse-circle" style="width:34px; height:34px; margin:0; box-shadow:none;"></div>
+                </div>
+                <div class="loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            </div>
+            <h2>Optimising your workout with AI</h2>
+            <p>Please wait — personalizing your session for optimal results.</p>
         </div>
     </div>
 
@@ -1273,15 +1297,13 @@
         // Save to account
         accounts[userData.email].time = userData.time;
         localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
-        // If this selection is happening right after an existing user logged in,
-        // automatically generate the plan for today's session
-        if(isExistingLogin) {
-            isExistingLogin = false;
+        // Show loading screen then generate plan so user sees the optimisation animation
+        navigate('screen-loading');
+        // small delay so animation is visible before generation begins
+        setTimeout(() => {
+            if(isExistingLogin) isExistingLogin = false;
             generatePlan();
-            return;
-        }
-        // Re-randomize whenever time selection changes
-        randomizeIfReady(false);
+        }, 700);
     }
 
     // Generation - call FastAPI LLM endpoint and render result
