@@ -811,6 +811,13 @@
     auth.onAuthStateChanged(async (user) => {
       if (!user) return;
 
+      await user.reload();
+      if (!user.emailVerified) {
+        await auth.signOut();
+        navigate('screen-auth');
+        return;
+      }
+
       userData.uid = user.uid;
       userData.email = user.email;
 
@@ -1082,6 +1089,14 @@
               .then(async (userCredential) => {
                 const user = userCredential.user;
 
+                await user.reload();
+
+                if (!user.emailVerified) {
+                  alert("Please verify your email before logging in.");
+                  await auth.signOut();
+                  return;
+                }
+
                 const doc = await db.collection("users").doc(user.uid).get();
                 if (!doc.exists) throw new Error("Profile not found");
 
@@ -1121,6 +1136,9 @@
               .then(async (userCredential) => {
                 const user = userCredential.user;
 
+                // 🔐 Send verification email
+                await user.sendEmailVerification();
+
                 await db.collection("users").doc(user.uid).set({
                   email: user.email,
                   createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1130,10 +1148,11 @@
                 userData.email = user.email;
                 userData.uid = user.uid;
 
-                errorDiv.style.display = 'none';
-                confirmErrorDiv.style.display = 'none';
-                // New users go through full setup
-                navigate('screen-name');
+                alert("Verification email sent. Please verify before continuing.");
+
+                // Logout user until verified
+                await auth.signOut();
+                navigate('screen-auth');
               })
               .catch((error) => {
                 errorDiv.innerText = error.message;
