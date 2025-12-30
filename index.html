@@ -1136,30 +1136,28 @@
               .then(async (userCredential) => {
                 const user = userCredential.user;
 
-                // � VERY IMPORTANT (sync auth)
-                await user.reload();
+                // 🔐 Send verification email
+                await user.sendEmailVerification();
 
-                // ✅ Create Firestore document FIRST
                 await db.collection("users").doc(user.uid).set({
                   email: user.email,
                   createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                   profileComplete: false
                 });
 
-                // ✅ Send verification email
-                await user.sendEmailVerification();
+                userData.email = user.email;
+                userData.uid = user.uid;
 
-                alert("Verification email sent. Please check inbox or spam.");
+                alert("Verification email sent. Please verify before continuing.");
 
-                // ✅ Logout until verified
+                // Logout user until verified
                 await auth.signOut();
-
                 navigate('screen-auth');
               })
               .catch((error) => {
-                console.error(error);
                 errorDiv.innerText = error.message;
                 errorDiv.style.display = 'block';
+                confirmErrorDiv.style.display = 'none';
               });
         }
     }
