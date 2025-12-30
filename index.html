@@ -171,6 +171,8 @@
             padding: 80px 30px 40px 30px; /* Top padding for header */
             flex-direction: column;
             animation: fadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            overflow-y: auto; /* allow scrolling for long screens like Constraints */
+            -webkit-overflow-scrolling: touch;
         }
 
         .screen.active { display: flex; }
@@ -680,7 +682,8 @@
             <div class="chip single" onclick="selectSingle(this)">45 Min</div>
             <div class="chip single" onclick="selectSingle(this)">60 Min</div>
         </div>
-        <button class="btn" onclick="generatePlan()">Continue</button>
+        <div id="time-error" class="error-msg" style="display:none;"></div>
+        <button class="btn" onclick="validateTimeSelection()">Continue</button>
     </div>
 
     <div class="screen" id="screen-health">
@@ -688,6 +691,22 @@
         <h2>Constraints</h2>
         <p>Injuries or medical conditions.</p>
         <textarea id="inp-health" rows="4" placeholder="e.g. Lower back pain..."></textarea>
+
+        <h3 style="font-size:14px; margin:12px 0 8px; color:#ddd;">SELECT TRAINING</h3>
+        <div id="training-chips" class="selection-grid" style="margin-bottom:16px;">
+            <div class="chip" onclick="toggleTraining(this)">Chest</div>
+            <div class="chip" onclick="toggleTraining(this)">Back</div>
+            <div class="chip" onclick="toggleTraining(this)">Biceps</div>
+            <div class="chip" onclick="toggleTraining(this)">Triceps</div>
+            <div class="chip" onclick="toggleTraining(this)">Shoulders</div>
+            <div class="chip" onclick="toggleTraining(this)">Legs</div>
+            <div class="chip" onclick="toggleTraining(this)">Glutes</div>
+            <div class="chip" onclick="toggleTraining(this)">Calves</div>
+            <div class="chip" onclick="toggleTraining(this)">Core</div>
+            <div class="chip" onclick="toggleTraining(this)">Cardio</div>
+            <div class="chip" onclick="toggleTraining(this)">Functional</div>
+        </div>
+
         <button class="btn" onclick="saveHealthAndContinue()">Continue</button>
     </div>
 
@@ -835,7 +854,7 @@
             }
             // Navigate based on whether the user's profile is complete
             if (isProfileComplete()) {
-                navigationStack = [];
+                navigationStack = ['screen-bmr'];
                 navigate('screen-goals');
             } else {
                 navigationStack = [];
@@ -865,6 +884,7 @@
         weight: 0,
         bmi: 0,
         goals: [],
+        trainingFocus: [],
         time: '45 Min',
         health: '',
         email: '',
@@ -975,9 +995,23 @@
 
     function randomizeIfReady(showImmediately = true) {
         if(!isProfileComplete()) return;
-        // Build a prioritized pool based on selected goals (if any)
-        const pool = (userData.goals && userData.goals.length) ? buildPoolFromGoals(userData.goals) : combinedExercisePool.slice();
-        const shuffled = shuffleArray(pool);
+        // Build a prioritized pool based on training focus OR selected goals
+        let pool = [];
+        if (userData.trainingFocus && userData.trainingFocus.length) {
+            userData.trainingFocus.forEach(cat => {
+                const key = String(cat).toUpperCase();
+                if (exerciseLibrary[key]) pool.push(...exerciseLibrary[key]);
+            });
+            if (pool.length === 0) pool = combinedExercisePool.slice();
+        } else if (userData.goals && userData.goals.length) {
+            pool = buildPoolFromGoals(userData.goals);
+        } else {
+            pool = combinedExercisePool.slice();
+        }
+        // Deduplicate merged pool
+        const dedup = [];
+        pool.forEach(e => { if(!dedup.includes(e)) dedup.push(e); });
+        const shuffled = shuffleArray(dedup);
         const picks = shuffled.slice(0, Math.min(7, shuffled.length));
         lastGeneratedExercises = picks.map(n => ({ n, s: '', r: '' }));
         // Save a snapshot for account (optional)
@@ -1036,6 +1070,10 @@
                 populateMonthYearSelectors();
                 renderCalendar();
             }, 50);
+        }
+        // Render training chips when entering health/constraints screen
+        if (screenId === 'screen-health') {
+            setTimeout(() => renderTrainingChips(), 50);
         }
     }
 
@@ -1149,7 +1187,8 @@
                                                                     navigate('screen-name');
                                                                     setTimeout(() => { isManualAuthFlow = false; }, 500);
                                                                 } else {
-                                                                    navigationStack = [];
+                                                                    // Preserve a sensible previous screen so Back goes to BMR
+                                                                    navigationStack = ['screen-bmr'];
                                                                     navigate('screen-goals');
                                                                     setTimeout(() => { isManualAuthFlow = false; }, 500);
                                                                 }
@@ -1399,11 +1438,41 @@
         if(el.classList.contains('selected')) userData.goals.push(val);
         else userData.goals = userData.goals.filter(g => g !== val);
         // Save to Firestore
-        db.collection("users").doc(userData.uid).update({
-          goals: userData.goals
-        });
+        if (userData.uid) {
+            db.collection("users").doc(userData.uid).update({
+              goals: userData.goals
+            });
+        }
         // Re-randomize exercises whenever goals change
         randomizeIfReady(false);
+    }
+
+    // Training focus multi-select (chipped UI)
+    function toggleTraining(el) {
+        el.classList.toggle('selected');
+        const val = el.innerText;
+        if (!Array.isArray(userData.trainingFocus)) userData.trainingFocus = [];
+        if (el.classList.contains('selected')) {
+            userData.trainingFocus.push(val);
+        } else {
+            userData.trainingFocus = userData.trainingFocus.filter(g => g !== val);
+        }
+        // Persist selection to Firestore (guarded)
+        if (userData.uid) {
+            db.collection('users').doc(userData.uid).update({ trainingFocus: userData.trainingFocus });
+        }
+        // Rebuild exercises if profile complete
+        randomizeIfReady(false);
+    }
+
+    function renderTrainingChips() {
+        // Ensure chips reflect userData.trainingFocus
+        const sel = Array.isArray(userData.trainingFocus) ? userData.trainingFocus : [];
+        const chips = document.querySelectorAll('#training-chips .chip');
+        chips.forEach(c => {
+            if (sel.includes(c.innerText)) c.classList.add('selected');
+            else c.classList.remove('selected');
+        });
     }
     
     function selectSingle(el) {
@@ -1411,16 +1480,86 @@
         el.classList.add('selected');
         userData.time = el.innerText;
         // Save to Firestore
-                db.collection("users").doc(userData.uid).update({
-                    time: userData.time
-                });
-        // Show loading screen then generate plan so user sees the optimisation animation
+        if (userData.uid) {
+            db.collection('users').doc(userData.uid).update({
+                time: userData.time
+            });
+        }
+        // Hide error on selection
+        const timeError = document.getElementById('time-error');
+        if (timeError) timeError.style.display = 'none';
+    }
+
+    function validateTimeSelection() {
+        const selectedChip = document.querySelector('#screen-time .chip.selected');
+        if (!selectedChip) {
+            const timeError = document.getElementById('time-error');
+            if (timeError) {
+                timeError.innerText = 'PLEASE CHOOSE ANY REQUIRED FIELD';
+                timeError.style.display = 'block';
+            }
+            return;
+        }
+        // Proceed with generation
         navigate('screen-loading');
-        // small delay so animation is visible before generation begins
         setTimeout(() => {
-            if(isExistingLogin) isExistingLogin = false;
+            if (isExistingLogin) isExistingLogin = false;
             generatePlan();
         }, 700);
+    }
+
+    function generateWorkoutByTime(timeStr) {
+        // Parse time string to minutes
+        const minutes = parseInt(String(timeStr).match(/\d+/)?.[0] || 45);
+        let exerciseCount = 7;
+        let setsPerExercise = 3;
+
+        if (minutes === 15 || minutes === 30) {
+            exerciseCount = 5;
+            setsPerExercise = 2;
+        }
+
+        // Build pool from training focus or fall back to combined
+        let pool = [];
+        if (userData.trainingFocus && userData.trainingFocus.length) {
+            userData.trainingFocus.forEach(cat => {
+                const key = String(cat).toUpperCase();
+                if (exerciseLibrary[key]) {
+                    pool.push(...exerciseLibrary[key]);
+                }
+            });
+        } else if (userData.goals && userData.goals.length) {
+            pool = buildPoolFromGoals(userData.goals);
+        } else {
+            pool = combinedExercisePool.slice();
+        }
+
+        // Deduplicate pool
+        const dedup = [];
+        pool.forEach(e => { if (!dedup.includes(e)) dedup.push(e); });
+
+        // Ensure at least 1 cardio is included
+        const cardioExercises = exerciseLibrary.CARDIO || [];
+        const cardioPool = cardioExercises.slice();
+        const selectedCardio = cardioPool.length > 0 ? cardioPool[Math.floor(Math.random() * cardioPool.length)] : null;
+
+        // Remove cardio from main pool to avoid duplicates
+        const nonCardioPool = dedup.filter(e => !cardioExercises.includes(e));
+
+        // Shuffle and pick exercises
+        const shuffled = shuffleArray(nonCardioPool);
+        const picks = shuffled.slice(0, Math.min(exerciseCount - (selectedCardio ? 1 : 0), shuffled.length));
+
+        // Add cardio at the END
+        const exercises = [];
+        exercises.push(...picks);
+        if (selectedCardio) exercises.push(selectedCardio);
+
+        // Map to format with sets
+        const setLabel = setsPerExercise + ' SETS';
+        lastGeneratedExercises = exercises.map(n => ({ n, s: setLabel, r: '' }));
+
+        return lastGeneratedExercises;
     }
 
     // Generation - call FastAPI LLM endpoint and render result
@@ -1431,10 +1570,17 @@
             if(document.getElementById('inp-health')) {
                 userData.health = document.getElementById('inp-health').value || userData.health || '';
             }
-                        db.collection("users").doc(userData.uid).update({
-                            health: userData.health
-                        });
-            randomizeIfReady(true);
+            if (userData.uid) {
+                db.collection('users').doc(userData.uid).update({
+                    health: userData.health
+                });
+            }
+            // Use time-aware generation
+            generateWorkoutByTime(userData.time);
+            renderResult();
+            navigate('screen-result');
+            populateMonthYearSelectors();
+            renderCalendar();
             return;
         }
 
