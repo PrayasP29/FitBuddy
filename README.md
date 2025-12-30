@@ -200,6 +200,10 @@ caloriesBurned = caloriesPerMinute × totalMinutes
 
 ## UI Navigation Stack
 
+![Sign-in Screen](https://github.com/PrayasP29/FitBuddy/blob/bb3a5a8477432191a9d7b9afb6c08c0bf76065d3/assets/signinpage.jpeg)
+
+![Objectives](https://github.com/PrayasP29/FitBuddy/blob/e5f22cb9a1cde69c419b76c4240553b93d406bed/assets/objectives.png)
+
 **Screen Flow**:
 ```
 screen-welcome → screen-auth → screen-name → screen-age → screen-height 
