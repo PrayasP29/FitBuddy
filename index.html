@@ -587,8 +587,8 @@
         <div class="header-nav"><button class="back-btn" onclick="goBack('screen-age')">← Back</button></div>
         <h2>Height</h2>
         <div class="toggle-container">
-            <button class="toggle-btn active" onclick="setHeightMode('ft')">FT / IN</button>
-            <button class="toggle-btn" onclick="setHeightMode('cm')">CM</button>
+            <button class="toggle-btn active" onclick="setHeightMode('ft', this)">FT / IN</button>
+            <button class="toggle-btn" onclick="setHeightMode('cm', this)">CM</button>
         </div>
         
         <div id="div-ft" style="display: flex; gap: 10px;">
@@ -784,7 +784,49 @@
 
 </div>
 
+<!-- Firebase SDKs (COMPAT version for plain HTML) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
 <script>
+    // 🔥 Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCzssTwnoEc8DPSs6XW7W3Ab9_V0FgKY",
+      authDomain: "fitbuddy-ai-498dd.firebaseapp.com",
+      projectId: "fitbuddy-ai-498dd",
+      storageBucket: "fitbuddy-ai-498dd.appspot.com",
+      messagingSenderId: "996918206824",
+      appId: "1:996918206824:web:d7848d63708a136c9b36dd"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+
+    // Firebase services
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    /* 🔥 STEP 4: AUTO LOGIN ON REFRESH */
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) return;
+
+      userData.uid = user.uid;
+      userData.email = user.email;
+
+      try {
+        const snap = await db.collection("users").doc(user.uid).get();
+        if (snap.exists) {
+          Object.assign(userData, snap.data());
+
+          // Decide where to go
+          navigate(userData.profileComplete ? 'screen-time' : 'screen-name');
+        }
+      } catch (err) {
+        console.error("Auto-login failed:", err);
+      }
+    });
+
     // --- APP LOGIC ---
     
     // Initial Setup
@@ -801,6 +843,7 @@
     const userData = {
         name: 'User',
         age: 0,
+        gender: '',
         height: 0,
         weight: 0,
         bmi: 0,
@@ -921,9 +964,10 @@
         const picks = shuffled.slice(0, Math.min(7, shuffled.length));
         lastGeneratedExercises = picks.map(n => ({ n, s: '', r: '' }));
         // Save a snapshot for account (optional)
-        if(userData.email) {
-            accounts[userData.email].lastPlan = lastGeneratedExercises.map(e => e.n);
-            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        if(userData.uid) {
+            db.collection("users").doc(userData.uid).update({
+              lastPlan: lastGeneratedExercises.map(e => e.n)
+            });
         }
         if(showImmediately) {
             renderResult();
@@ -1034,28 +1078,28 @@
 
         if(isLoginMode) {
             // Sign In - Existing User
-            if(!accounts[email] || accounts[email].password !== pass) {
-                errorDiv.innerText = "INVALID EMAIL OR PASSWORD";
+            auth.signInWithEmailAndPassword(email, pass)
+              .then(async (userCredential) => {
+                const user = userCredential.user;
+
+                const doc = await db.collection("users").doc(user.uid).get();
+                if (!doc.exists) throw new Error("Profile not found");
+
+                Object.assign(userData, doc.data());
+                userData.email = user.email;
+                userData.uid = user.uid;
+
+                isExistingLogin = true;
+                errorDiv.style.display = 'none';
+                confirmErrorDiv.style.display = 'none';
+                // Existing users go to time selection for daily commitment
+                navigate('screen-time');
+              })
+              .catch((error) => {
+                errorDiv.innerText = error.message;
                 errorDiv.style.display = 'block';
                 confirmErrorDiv.style.display = 'none';
-                return;
-            }
-            userData.email = email;
-            userData.name = accounts[email].name;
-            userData.workoutDays = accounts[email].workoutDays || [];
-            userData.height = accounts[email].height || 0;
-            userData.weight = accounts[email].weight || 0;
-            userData.bmi = accounts[email].bmi || 0;
-            userData.goals = accounts[email].goals || [];
-            userData.health = accounts[email].health || '';
-            // Mark that this is an existing login so selecting today's time auto-generates plan
-            isExistingLogin = true;
-            // Load previous time preference if available
-            userData.time = accounts[email].time || userData.time;
-            errorDiv.style.display = 'none';
-            confirmErrorDiv.style.display = 'none';
-            // Existing users go to time selection for daily commitment
-            navigate('screen-time');
+              });
         } else {
             // Sign Up - New User
             // Check if passwords match
@@ -1073,30 +1117,29 @@
                 return;
             }
 
-            if(accounts[email]) {
-                errorDiv.innerText = "ACCOUNT ALREADY EXISTS";
+            auth.createUserWithEmailAndPassword(email, pass)
+              .then(async (userCredential) => {
+                const user = userCredential.user;
+
+                await db.collection("users").doc(user.uid).set({
+                  email: user.email,
+                  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                  profileComplete: false
+                });
+
+                userData.email = user.email;
+                userData.uid = user.uid;
+
+                errorDiv.style.display = 'none';
+                confirmErrorDiv.style.display = 'none';
+                // New users go through full setup
+                navigate('screen-name');
+              })
+              .catch((error) => {
+                errorDiv.innerText = error.message;
                 errorDiv.style.display = 'block';
                 confirmErrorDiv.style.display = 'none';
-                return;
-            }
-
-            // Create new account and proceed to setup
-            accounts[email] = {
-                password: pass,
-                name: 'User',
-                workoutDays: [],
-                height: 0,
-                weight: 0,
-                bmi: 0,
-                goals: [],
-                health: ''
-            };
-            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
-            userData.email = email;
-            errorDiv.style.display = 'none';
-            confirmErrorDiv.style.display = 'none';
-            // New users go through full setup
-            navigate('screen-name');
+              });
         }
     }
 
@@ -1137,8 +1180,10 @@
         fullName += " " + lastName;
 
         userData.name = fullName.toUpperCase();
-        accounts[userData.email].name = userData.name;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        db.collection("users").doc(userData.uid).update({
+          name: userData.name,
+          profileComplete: false
+        });
         document.getElementById('disp-name').innerText = userData.name;
         navigate('screen-age');
     }
@@ -1164,11 +1209,12 @@
                 return;
             }
             if(genderSel) userData.gender = genderSel.value || '';
-            // persist to account if logged in
-            if(userData.email) {
-                accounts[userData.email].age = userData.age;
-                accounts[userData.email].gender = userData.gender || '';
-                localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+            // persist to Firestore if logged in
+            if(userData.uid) {
+                db.collection("users").doc(userData.uid).update({
+                  age: userData.age,
+                  gender: userData.gender || ''
+                });
             }
         }
 
@@ -1176,12 +1222,12 @@
         navigate(nextId);
     }
 
-    function setHeightMode(mode) {
+    function setHeightMode(mode, el) {
         isMetric = (mode === 'cm');
         document.getElementById('div-ft').style.display = isMetric ? 'none' : 'flex';
         document.getElementById('div-cm').style.display = isMetric ? 'block' : 'none';
         document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-        event.target.classList.add('active');
+        el.classList.add('active');
     }
 
     function saveHeight() {
@@ -1195,9 +1241,10 @@
             if(!ft) { showScreenError('please fill missing field', 'inp-ft'); return; }
             userData.height = (parseFloat(ft) * 30.48) + (parseFloat(inch || 0) * 2.54);
         }
-        // Save to account
-        accounts[userData.email].height = userData.height;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        // Save to Firestore
+        db.collection("users").doc(userData.uid).update({
+          height: userData.height
+        });
         clearScreenError();
         navigate('screen-weight');
     }
@@ -1211,10 +1258,11 @@
         const bmi = userData.weight / (h_m * h_m);
         userData.bmi = bmi.toFixed(1);
         
-        // Save to account
-        accounts[userData.email].weight = userData.weight;
-        accounts[userData.email].bmi = userData.bmi;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        // Save to Firestore
+        db.collection("users").doc(userData.uid).update({
+          weight: userData.weight,
+          bmi: userData.bmi
+        });
         
         document.getElementById('bmi-disp').innerText = userData.bmi;
         let cat = "";
@@ -1254,8 +1302,9 @@
         }
         
         userData.bmr = Math.round(bmr);
-        accounts[userData.email].bmr = userData.bmr;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        db.collection("users").doc(userData.uid).update({
+          bmr: userData.bmr
+        });
         
         document.getElementById('bmr-disp').innerText = userData.bmr;
         clearScreenError();
@@ -1270,9 +1319,10 @@
         userData.tdee = tdee;
         userData.activityLevel = el.innerText;
         
-        accounts[userData.email].tdee = userData.tdee;
-        accounts[userData.email].activityLevel = userData.activityLevel;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        db.collection("users").doc(userData.uid).update({
+          tdee: userData.tdee,
+          activityLevel: userData.activityLevel
+        });
         
         document.getElementById('tdee-disp').innerText = tdee + ' kcal/day';
     }
@@ -1283,9 +1333,10 @@
         const val = el.innerText;
         if(el.classList.contains('selected')) userData.goals.push(val);
         else userData.goals = userData.goals.filter(g => g !== val);
-        // Save to account
-        accounts[userData.email].goals = userData.goals;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        // Save to Firestore
+        db.collection("users").doc(userData.uid).update({
+          goals: userData.goals
+        });
         // Re-randomize exercises whenever goals change
         randomizeIfReady(false);
     }
@@ -1294,9 +1345,11 @@
         el.parentNode.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
         el.classList.add('selected');
         userData.time = el.innerText;
-        // Save to account
-        accounts[userData.email].time = userData.time;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        // Save to Firestore
+        db.collection("users").doc(userData.uid).update({
+          time: userData.time,
+          profileComplete: true
+        });
         // Show loading screen then generate plan so user sees the optimisation animation
         navigate('screen-loading');
         // small delay so animation is visible before generation begins
@@ -1314,8 +1367,10 @@
             if(document.getElementById('inp-health')) {
                 userData.health = document.getElementById('inp-health').value || userData.health || '';
             }
-            accounts[userData.email].health = userData.health;
-            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+            db.collection("users").doc(userData.uid).update({
+              health: userData.health,
+              profileComplete: true
+            });
             randomizeIfReady(true);
             return;
         }
@@ -1326,8 +1381,10 @@
         if(document.getElementById('inp-health')) {
             userData.health = document.getElementById('inp-health').value || userData.health || '';
         }
-        accounts[userData.email].health = userData.health;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        db.collection("users").doc(userData.uid).update({
+          health: userData.health,
+          profileComplete: true
+        });
 
         // Attempt to call FastAPI endpoint (use /api/routine)
         const endpoints = [ 'http://127.0.0.1:8000/api/routine' ];
@@ -1428,9 +1485,10 @@
     function saveHealthAndContinue() {
         const h = document.getElementById('inp-health').value;
         userData.health = h;
-        if(userData.email) {
-            accounts[userData.email].health = userData.health;
-            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        if(userData.uid) {
+            db.collection("users").doc(userData.uid).update({
+              health: userData.health
+            });
         }
         navigate('screen-time');
     }
@@ -1699,9 +1757,10 @@
             userData.workoutDays.push(dateStr);
             element.classList.add('active');
         }
-        // Save to account
-        accounts[userData.email].workoutDays = userData.workoutDays;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        // Save to Firestore
+        db.collection("users").doc(userData.uid).update({
+          workoutDays: userData.workoutDays
+        });
     }
 
     // Parse raw routine text (from the model) into exercise objects
@@ -1779,16 +1838,24 @@
     // --- LOGOUT ---
     function logout() {
         if(confirm('Are you sure you want to logout?')) {
-            userData.email = '';
-            clearInterval(timerInterval);
-            navigate('screen-welcome');
-            app.classList.add('hero-mode');
-            // Reset timer
-            timerSeconds = 120; // 2 minutes
-            timerRunning = false;
-            timerPhase = 'workout';
-            currentSet = 1;
-            updateTimerDisplay();
+            auth.signOut().then(() => {
+                Object.assign(userData, {
+                  name: 'User',
+                  age: 0,
+                  gender: '',
+                  height: 0,
+                  weight: 0,
+                  bmi: 0,
+                  goals: [],
+                  time: '',
+                  health: '',
+                  email: '',
+                  workoutDays: []
+                });
+                clearInterval(timerInterval);
+                navigate('screen-welcome');
+                app.classList.add('hero-mode');
+            });
         }
     }
 
