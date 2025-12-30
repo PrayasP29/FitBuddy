@@ -1,3 +1,4 @@
+                                                                }                                                                }
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -806,33 +807,39 @@
     // ✅ Firebase services
     const auth = firebase.auth();
     const db = firebase.firestore();
+    let isSigningUp = false;
+    let isManualAuthFlow = false;
 
     /* 🔥 STEP 4: AUTO LOGIN ON REFRESH */
-    auth.onAuthStateChanged(async (user) => {
-      if (!user) return;
+        auth.onAuthStateChanged(async (user) => {
+            if (!user || isSigningUp || isManualAuthFlow) return;
 
-      await user.reload();
-      if (!user.emailVerified) {
-        await auth.signOut();
-        navigate('screen-auth');
-        return;
-      }
+            await user.reload();
+            await user.getIdToken(true); // 🔥 REQUIRED
+            if (!user.emailVerified) {
+                await auth.signOut();
+                navigate('screen-auth');
+                return;
+            }
 
-      userData.uid = user.uid;
-      userData.email = user.email;
+            userData.uid = user.uid;
+            userData.email = user.email;
 
-      try {
-        const snap = await db.collection("users").doc(user.uid).get();
-        if (snap.exists) {
-          Object.assign(userData, snap.data());
+            try {
+                const snap = await db.collection("users").doc(user.uid).get();
+                if (snap.exists) {
+                    Object.assign(userData, snap.data());
 
-          // Decide where to go
-          navigate(userData.profileComplete ? 'screen-time' : 'screen-name');
-        }
-      } catch (err) {
-        console.error("Auto-login failed:", err);
-      }
-    });
+                    if (!userData.name || !userData.age || !userData.height || !userData.weight) {
+                        navigate('screen-name');
+                    } else {
+                        navigate('screen-result');
+                    }
+                }
+            } catch (err) {
+                console.error("Auto-login failed:", err);
+            }
+        });
 
     // --- APP LOGIC ---
     
@@ -1086,29 +1093,48 @@
         if(isLoginMode) {
             // Sign In - Existing User
             auth.signInWithEmailAndPassword(email, pass)
-              .then(async (userCredential) => {
-                const user = userCredential.user;
+                            .then(async (userCredential) => {
+                                const user = userCredential.user;
+                                                                isManualAuthFlow = true; // 🔥 MOVE THIS TO THE TOP
 
-                await user.reload();
+                                                                await user.reload();
+                                                                await user.getIdToken(true); // 🔥 FORCE TOKEN REFRESH
 
-                if (!user.emailVerified) {
-                  alert("Please verify your email before logging in.");
-                  await auth.signOut();
-                  return;
-                }
+                                                                if (!user.emailVerified) {
+                                                                        alert("Please verify your email before logging in.");
+                                                                        await auth.signOut();
+                                                                        isManualAuthFlow = false;
+                                                                        return;
+                                                                }
 
-                const doc = await db.collection("users").doc(user.uid).get();
-                if (!doc.exists) throw new Error("Profile not found");
+                                const docRef = db.collection("users").doc(user.uid);
+                                const docSnap = await docRef.get();
 
-                Object.assign(userData, doc.data());
-                userData.email = user.email;
-                userData.uid = user.uid;
+                                // ✅ DO NOT THROW
+                                if (!docSnap.exists) {
+                                    await docRef.set({
+                                        email: user.email,
+                                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    });
+                                }
 
-                isExistingLogin = true;
-                errorDiv.style.display = 'none';
-                confirmErrorDiv.style.display = 'none';
-                // Existing users go to time selection for daily commitment
-                navigate('screen-time');
+                                                                const freshSnap = await docRef.get();
+                                                                if (freshSnap.exists) {
+                                                                    Object.assign(userData, freshSnap.data());
+                                                                }
+                                                                userData.email = user.email;
+                                                                userData.uid = user.uid;
+
+                                errorDiv.style.display = 'none';
+                                confirmErrorDiv.style.display = 'none';
+
+                                                                if (!userData.name || !userData.age || !userData.height || !userData.weight) {
+                                                                    navigate('screen-name');
+                                                                    setTimeout(() => { isManualAuthFlow = false; }, 500);
+                                                                } else {
+                                                                    navigate('screen-result');
+                                                                    setTimeout(() => { isManualAuthFlow = false; }, 500);
+                                                                }
               })
               .catch((error) => {
                 errorDiv.innerText = error.message;
@@ -1125,40 +1151,43 @@
                 return;
             }
 
-            if(!validatePassword(pass)) {
+                        if(!validatePassword(pass)) {
                 errorDiv.innerText = "PASSWORD: MIN 8 CHARS, 1 UPPERCASE, 1 SPECIAL CHAR (!@#$%^&*...)";
                 errorDiv.style.display = 'block';
                 confirmErrorDiv.style.display = 'none';
                 return;
             }
+                        isSigningUp = true;
+                        auth.createUserWithEmailAndPassword(email, pass)
+                            .then(async (userCredential) => {
+                                const user = userCredential.user;
 
-            auth.createUserWithEmailAndPassword(email, pass)
-              .then(async (userCredential) => {
-                const user = userCredential.user;
+                                // 🔥 Ensure auth state is fully ready
+                                await user.reload();
 
-                // 🔐 Send verification email
-                await user.sendEmailVerification();
+                                // ✅ FIRST: create Firestore doc
+                                    await db.collection("users").doc(user.uid).set({
+                                        email: user.email,
+                                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    });
+                                // ✅ THEN: send verification email
+                                await user.sendEmailVerification();
 
-                await db.collection("users").doc(user.uid).set({
-                  email: user.email,
-                  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                  profileComplete: false
-                });
+                                alert("Verification email sent. Please verify before continuing.");
 
-                userData.email = user.email;
-                userData.uid = user.uid;
-
-                alert("Verification email sent. Please verify before continuing.");
-
-                // Logout user until verified
-                await auth.signOut();
-                navigate('screen-auth');
-              })
-              .catch((error) => {
-                errorDiv.innerText = error.message;
-                errorDiv.style.display = 'block';
-                confirmErrorDiv.style.display = 'none';
-              });
+                                // ✅ LAST: sign out
+                                await auth.signOut();
+                                isSigningUp = false;
+                                isManualAuthFlow = true;
+                                navigate('screen-auth');
+                                setTimeout(() => { isManualAuthFlow = false; }, 500);
+                            })
+                            .catch((error) => {
+                                isSigningUp = false;
+                                errorDiv.innerText = error.message;
+                                errorDiv.style.display = 'block';
+                                confirmErrorDiv.style.display = 'none';
+                            });
         }
     }
 
@@ -1199,10 +1228,9 @@
         fullName += " " + lastName;
 
         userData.name = fullName.toUpperCase();
-        db.collection("users").doc(userData.uid).update({
-          name: userData.name,
-          profileComplete: false
-        });
+                db.collection("users").doc(userData.uid).update({
+                    name: userData.name
+                });
         document.getElementById('disp-name').innerText = userData.name;
         navigate('screen-age');
     }
@@ -1365,10 +1393,9 @@
         el.classList.add('selected');
         userData.time = el.innerText;
         // Save to Firestore
-        db.collection("users").doc(userData.uid).update({
-          time: userData.time,
-          profileComplete: true
-        });
+                db.collection("users").doc(userData.uid).update({
+                    time: userData.time
+                });
         // Show loading screen then generate plan so user sees the optimisation animation
         navigate('screen-loading');
         // small delay so animation is visible before generation begins
@@ -1386,10 +1413,9 @@
             if(document.getElementById('inp-health')) {
                 userData.health = document.getElementById('inp-health').value || userData.health || '';
             }
-            db.collection("users").doc(userData.uid).update({
-              health: userData.health,
-              profileComplete: true
-            });
+                        db.collection("users").doc(userData.uid).update({
+                            health: userData.health
+                        });
             randomizeIfReady(true);
             return;
         }
@@ -1400,10 +1426,9 @@
         if(document.getElementById('inp-health')) {
             userData.health = document.getElementById('inp-health').value || userData.health || '';
         }
-        db.collection("users").doc(userData.uid).update({
-          health: userData.health,
-          profileComplete: true
-        });
+                db.collection("users").doc(userData.uid).update({
+                    health: userData.health
+                });
 
         // Attempt to call FastAPI endpoint (use /api/routine)
         const endpoints = [ 'http://127.0.0.1:8000/api/routine' ];
