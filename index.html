@@ -790,20 +790,20 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <script>
-    // 🔥 Firebase configuration
+        // Firebase configuration (FROM PROJECT SETTINGS → WEB APP)
     const firebaseConfig = {
-      apiKey: "AIzaSyCzssTwnoEc8DPSs6XW7W3Ab9_V0FgKY",
-      authDomain: "fitbuddy-ai-498dd.firebaseapp.com",
-      projectId: "fitbuddy-ai-498dd",
-      storageBucket: "fitbuddy-ai-498dd.appspot.com",
-      messagingSenderId: "996918206824",
-      appId: "1:996918206824:web:d7848d63708a136c9b36dd"
+        apiKey: "AIzaSyCzssTwnoEc8DPS8s6XW7lW3Ab9_VOFgKY",
+        authDomain: "fitbuddy-ai-498dd.firebaseapp.com",
+        projectId: "fitbuddy-ai-498dd",
+        storageBucket: "fitbuddy-ai-498dd.appspot.com",
+        messagingSenderId: "996918206824",
+        appId: "1:996918206824:web:d7848d63708a136c9b36dd"
     };
 
-    // Initialize Firebase
+    // ✅ Initialize Firebase (COMPAT)
     firebase.initializeApp(firebaseConfig);
 
-    // Firebase services
+    // ✅ Firebase services
     const auth = firebase.auth();
     const db = firebase.firestore();
 
