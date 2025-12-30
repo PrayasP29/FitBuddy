@@ -1,4 +1,56 @@
-// --- APP LOGIC ---
+  // Firebase configuration (FROM PROJECT SETTINGS → WEB APP)
+    const firebaseConfig = {
+        apiKey: "AIzaSyCzssTwnoEc8DPS8s6XW7lW3Ab9_VOFgKY",
+        authDomain: "fitbuddy-ai-498dd.firebaseapp.com",
+        projectId: "fitbuddy-ai-498dd",
+        storageBucket: "fitbuddy-ai-498dd.appspot.com",
+        messagingSenderId: "996918206824",
+        appId: "1:996918206824:web:d7848d63708a136c9b36dd"
+    };
+
+    // ✅ Initialize Firebase (COMPAT)
+    firebase.initializeApp(firebaseConfig);
+
+    // ✅ Firebase services
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    let isSigningUp = false;
+    let isManualAuthFlow = false;
+
+    /* 🔥 STEP 4: AUTO LOGIN ON REFRESH */
+        auth.onAuthStateChanged(async (user) => {
+            if (!user || isSigningUp || isManualAuthFlow) return;
+
+            await user.reload();
+            await user.getIdToken(true); // 🔥 REQUIRED
+            if (!user.emailVerified) {
+                await auth.signOut();
+                navigate('screen-auth');
+                return;
+            }
+
+            userData.uid = user.uid;
+            userData.email = user.email;
+
+            try {
+                const snap = await db.collection("users").doc(user.uid).get();
+                if (snap.exists) {
+                    Object.assign(userData, snap.data());
+                }
+            } catch (err) {
+                console.error("Auto-login failed:", err);
+            }
+            // Navigate based on whether the user's profile is complete
+            if (isProfileComplete()) {
+                navigationStack = ['screen-bmr'];
+                navigate('screen-goals');
+            } else {
+                navigationStack = [];
+                navigate('screen-name');
+            }
+        });
+
+    // --- APP LOGIC ---
     
     // Initial Setup
     const app = document.getElementById('app');
@@ -10,14 +62,17 @@
     let timerRunning = false;
     let timerPhase = 'workout'; // 'workout' or 'rest'
     let currentSet = 1;
+    let navigationStack = [];
 
     const userData = {
         name: 'User',
         age: 0,
+        gender: '',
         height: 0,
         weight: 0,
         bmi: 0,
         goals: [],
+        trainingFocus: [],
         time: '45 Min',
         health: '',
         email: '',
@@ -128,15 +183,30 @@
 
     function randomizeIfReady(showImmediately = true) {
         if(!isProfileComplete()) return;
-        // Build a prioritized pool based on selected goals (if any)
-        const pool = (userData.goals && userData.goals.length) ? buildPoolFromGoals(userData.goals) : combinedExercisePool.slice();
-        const shuffled = shuffleArray(pool);
+        // Build a prioritized pool based on training focus OR selected goals
+        let pool = [];
+        if (userData.trainingFocus && userData.trainingFocus.length) {
+            userData.trainingFocus.forEach(cat => {
+                const key = String(cat).toUpperCase();
+                if (exerciseLibrary[key]) pool.push(...exerciseLibrary[key]);
+            });
+            if (pool.length === 0) pool = combinedExercisePool.slice();
+        } else if (userData.goals && userData.goals.length) {
+            pool = buildPoolFromGoals(userData.goals);
+        } else {
+            pool = combinedExercisePool.slice();
+        }
+        // Deduplicate merged pool
+        const dedup = [];
+        pool.forEach(e => { if(!dedup.includes(e)) dedup.push(e); });
+        const shuffled = shuffleArray(dedup);
         const picks = shuffled.slice(0, Math.min(7, shuffled.length));
         lastGeneratedExercises = picks.map(n => ({ n, s: '', r: '' }));
         // Save a snapshot for account (optional)
-        if(userData.email) {
-            accounts[userData.email].lastPlan = lastGeneratedExercises.map(e => e.n);
-            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        if(userData.uid) {
+            db.collection("users").doc(userData.uid).update({
+              lastPlan: lastGeneratedExercises.map(e => e.n)
+            });
         }
         if(showImmediately) {
             renderResult();
@@ -166,6 +236,11 @@
 
     // Navigation
     function navigate(screenId) {
+        const current = document.querySelector('.screen.active');
+        if (current && current.id !== screenId) {
+            navigationStack.push(current.id);
+        }
+
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         clearScreenError();
         document.getElementById(screenId).classList.add('active');
@@ -175,6 +250,18 @@
             app.classList.add('hero-mode');
         } else {
             app.classList.remove('hero-mode');
+        }
+
+        // 🔥 FIX: Initialize calendar when result screen is shown
+        if (screenId === 'screen-result') {
+            setTimeout(() => {
+                populateMonthYearSelectors();
+                renderCalendar();
+            }, 50);
+        }
+        // Render training chips when entering health/constraints screen
+        if (screenId === 'screen-health') {
+            setTimeout(() => renderTrainingChips(), 50);
         }
     }
 
@@ -206,8 +293,23 @@
         document.querySelectorAll('[id$="-error"]').forEach(el => el.style.display = 'none');
     }
 
-    function goBack(screenId, isWelcome = false) {
-        navigate(screenId);
+    function showEmailVerificationMessage() {
+        const noticeDiv = document.getElementById('verification-notice');
+        if (noticeDiv) {
+            noticeDiv.style.display = 'block';
+        }
+    }
+
+    function hideEmailVerificationMessage() {
+        const noticeDiv = document.getElementById('verification-notice');
+        if (noticeDiv) {
+            noticeDiv.style.display = 'none';
+        }
+    }
+
+    function goBack(fallbackScreen) {
+        const prev = navigationStack.pop();
+        navigate(prev || fallbackScreen || 'screen-welcome');
     }
 
     // Auth Flow
@@ -247,28 +349,57 @@
 
         if(isLoginMode) {
             // Sign In - Existing User
-            if(!accounts[email] || accounts[email].password !== pass) {
-                errorDiv.innerText = "INVALID EMAIL OR PASSWORD";
+            auth.signInWithEmailAndPassword(email, pass)
+                            .then(async (userCredential) => {
+                                const user = userCredential.user;
+                                                                isManualAuthFlow = true; // 🔥 MOVE THIS TO THE TOP
+
+                                                                await user.reload();
+                                                                await user.getIdToken(true); // 🔥 FORCE TOKEN REFRESH
+
+                                                                if (!user.emailVerified) {
+                                                                        alert("Please verify your email before logging in.");
+                                                                        await auth.signOut();
+                                                                        isManualAuthFlow = false;
+                                                                        return;
+                                                                }
+
+                                const docRef = db.collection("users").doc(user.uid);
+                                const docSnap = await docRef.get();
+
+                                // ✅ DO NOT THROW
+                                if (!docSnap.exists) {
+                                    await docRef.set({
+                                        email: user.email,
+                                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    });
+                                }
+
+                                                                const freshSnap = await docRef.get();
+                                                                if (freshSnap.exists) {
+                                                                    Object.assign(userData, freshSnap.data());
+                                                                }
+                                                                userData.email = user.email;
+                                                                userData.uid = user.uid;
+
+                                errorDiv.style.display = 'none';
+                                confirmErrorDiv.style.display = 'none';
+                                                                if (!userData.name || !userData.age || !userData.height || !userData.weight) {
+                                                                    navigationStack = [];
+                                                                    navigate('screen-name');
+                                                                    setTimeout(() => { isManualAuthFlow = false; }, 500);
+                                                                } else {
+                                                                    // Preserve a sensible previous screen so Back goes to BMR
+                                                                    navigationStack = ['screen-bmr'];
+                                                                    navigate('screen-goals');
+                                                                    setTimeout(() => { isManualAuthFlow = false; }, 500);
+                                                                }
+              })
+              .catch((error) => {
+                errorDiv.innerText = error.message;
                 errorDiv.style.display = 'block';
                 confirmErrorDiv.style.display = 'none';
-                return;
-            }
-            userData.email = email;
-            userData.name = accounts[email].name;
-            userData.workoutDays = accounts[email].workoutDays || [];
-            userData.height = accounts[email].height || 0;
-            userData.weight = accounts[email].weight || 0;
-            userData.bmi = accounts[email].bmi || 0;
-            userData.goals = accounts[email].goals || [];
-            userData.health = accounts[email].health || '';
-            // Mark that this is an existing login so selecting today's time auto-generates plan
-            isExistingLogin = true;
-            // Load previous time preference if available
-            userData.time = accounts[email].time || userData.time;
-            errorDiv.style.display = 'none';
-            confirmErrorDiv.style.display = 'none';
-            // Existing users go to time selection for daily commitment
-            navigate('screen-time');
+              });
         } else {
             // Sign Up - New User
             // Check if passwords match
@@ -279,37 +410,46 @@
                 return;
             }
 
-            if(!validatePassword(pass)) {
+                        if(!validatePassword(pass)) {
                 errorDiv.innerText = "PASSWORD: MIN 8 CHARS, 1 UPPERCASE, 1 SPECIAL CHAR (!@#$%^&*...)";
                 errorDiv.style.display = 'block';
                 confirmErrorDiv.style.display = 'none';
                 return;
             }
+                        isSigningUp = true;
+                        auth.createUserWithEmailAndPassword(email, pass)
+                            .then(async (userCredential) => {
+                                const user = userCredential.user;
 
-            if(accounts[email]) {
-                errorDiv.innerText = "ACCOUNT ALREADY EXISTS";
-                errorDiv.style.display = 'block';
-                confirmErrorDiv.style.display = 'none';
-                return;
-            }
+                                // 🔥 Ensure auth state is fully ready
+                                await user.reload();
 
-            // Create new account and proceed to setup
-            accounts[email] = {
-                password: pass,
-                name: 'User',
-                workoutDays: [],
-                height: 0,
-                weight: 0,
-                bmi: 0,
-                goals: [],
-                health: ''
-            };
-            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
-            userData.email = email;
-            errorDiv.style.display = 'none';
-            confirmErrorDiv.style.display = 'none';
-            // New users go through full setup
-            navigate('screen-name');
+                                // ✅ FIRST: create Firestore doc
+                                    await db.collection("users").doc(user.uid).set({
+                                        email: user.email,
+                                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    });
+                                // ✅ THEN: send verification email
+                                await user.sendEmailVerification();
+
+                                // Show verification notice to user
+                                showEmailVerificationMessage();
+
+                                alert("Verification email sent. Please verify before continuing.");
+
+                                // ✅ LAST: sign out
+                                await auth.signOut();
+                                isSigningUp = false;
+                                isManualAuthFlow = true;
+                                navigate('screen-auth');
+                                setTimeout(() => { isManualAuthFlow = false; }, 500);
+                            })
+                            .catch((error) => {
+                                isSigningUp = false;
+                                errorDiv.innerText = error.message;
+                                errorDiv.style.display = 'block';
+                                confirmErrorDiv.style.display = 'none';
+                            });
         }
     }
 
@@ -350,8 +490,9 @@
         fullName += " " + lastName;
 
         userData.name = fullName.toUpperCase();
-        accounts[userData.email].name = userData.name;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+                db.collection("users").doc(userData.uid).update({
+                    name: userData.name
+                });
         document.getElementById('disp-name').innerText = userData.name;
         navigate('screen-age');
     }
@@ -377,11 +518,12 @@
                 return;
             }
             if(genderSel) userData.gender = genderSel.value || '';
-            // persist to account if logged in
-            if(userData.email) {
-                accounts[userData.email].age = userData.age;
-                accounts[userData.email].gender = userData.gender || '';
-                localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+            // persist to Firestore if logged in
+            if(userData.uid) {
+                db.collection("users").doc(userData.uid).update({
+                  age: userData.age,
+                  gender: userData.gender || ''
+                });
             }
         }
 
@@ -389,12 +531,12 @@
         navigate(nextId);
     }
 
-    function setHeightMode(mode) {
+    function setHeightMode(mode, el) {
         isMetric = (mode === 'cm');
         document.getElementById('div-ft').style.display = isMetric ? 'none' : 'flex';
         document.getElementById('div-cm').style.display = isMetric ? 'block' : 'none';
         document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-        event.target.classList.add('active');
+        el.classList.add('active');
     }
 
     function saveHeight() {
@@ -408,9 +550,10 @@
             if(!ft) { showScreenError('please fill missing field', 'inp-ft'); return; }
             userData.height = (parseFloat(ft) * 30.48) + (parseFloat(inch || 0) * 2.54);
         }
-        // Save to account
-        accounts[userData.email].height = userData.height;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        // Save to Firestore
+        db.collection("users").doc(userData.uid).update({
+          height: userData.height
+        });
         clearScreenError();
         navigate('screen-weight');
     }
@@ -424,10 +567,11 @@
         const bmi = userData.weight / (h_m * h_m);
         userData.bmi = bmi.toFixed(1);
         
-        // Save to account
-        accounts[userData.email].weight = userData.weight;
-        accounts[userData.email].bmi = userData.bmi;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        // Save to Firestore
+        db.collection("users").doc(userData.uid).update({
+          weight: userData.weight,
+          bmi: userData.bmi
+        });
         
         document.getElementById('bmi-disp').innerText = userData.bmi;
         let cat = "";
@@ -467,8 +611,9 @@
         }
         
         userData.bmr = Math.round(bmr);
-        accounts[userData.email].bmr = userData.bmr;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        db.collection("users").doc(userData.uid).update({
+          bmr: userData.bmr
+        });
         
         document.getElementById('bmr-disp').innerText = userData.bmr;
         clearScreenError();
@@ -483,9 +628,10 @@
         userData.tdee = tdee;
         userData.activityLevel = el.innerText;
         
-        accounts[userData.email].tdee = userData.tdee;
-        accounts[userData.email].activityLevel = userData.activityLevel;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        db.collection("users").doc(userData.uid).update({
+          tdee: userData.tdee,
+          activityLevel: userData.activityLevel
+        });
         
         document.getElementById('tdee-disp').innerText = tdee + ' kcal/day';
     }
@@ -496,29 +642,129 @@
         const val = el.innerText;
         if(el.classList.contains('selected')) userData.goals.push(val);
         else userData.goals = userData.goals.filter(g => g !== val);
-        // Save to account
-        accounts[userData.email].goals = userData.goals;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        // Save to Firestore
+        if (userData.uid) {
+            db.collection("users").doc(userData.uid).update({
+              goals: userData.goals
+            });
+        }
         // Re-randomize exercises whenever goals change
         randomizeIfReady(false);
+    }
+
+    // Training focus multi-select (chipped UI)
+    function toggleTraining(el) {
+        el.classList.toggle('selected');
+        const val = el.innerText;
+        if (!Array.isArray(userData.trainingFocus)) userData.trainingFocus = [];
+        if (el.classList.contains('selected')) {
+            userData.trainingFocus.push(val);
+        } else {
+            userData.trainingFocus = userData.trainingFocus.filter(g => g !== val);
+        }
+        // Persist selection to Firestore (guarded)
+        if (userData.uid) {
+            db.collection('users').doc(userData.uid).update({ trainingFocus: userData.trainingFocus });
+        }
+        // Rebuild exercises if profile complete
+        randomizeIfReady(false);
+    }
+
+    function renderTrainingChips() {
+        // Ensure chips reflect userData.trainingFocus
+        const sel = Array.isArray(userData.trainingFocus) ? userData.trainingFocus : [];
+        const chips = document.querySelectorAll('#training-chips .chip');
+        chips.forEach(c => {
+            if (sel.includes(c.innerText)) c.classList.add('selected');
+            else c.classList.remove('selected');
+        });
     }
     
     function selectSingle(el) {
         el.parentNode.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
         el.classList.add('selected');
         userData.time = el.innerText;
-        // Save to account
-        accounts[userData.email].time = userData.time;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
-        // If this selection is happening right after an existing user logged in,
-        // automatically generate the plan for today's session
-        if(isExistingLogin) {
-            isExistingLogin = false;
-            generatePlan();
+        // Save to Firestore
+        if (userData.uid) {
+            db.collection('users').doc(userData.uid).update({
+                time: userData.time
+            });
+        }
+        // Hide error on selection
+        const timeError = document.getElementById('time-error');
+        if (timeError) timeError.style.display = 'none';
+    }
+
+    function validateTimeSelection() {
+        const selectedChip = document.querySelector('#screen-time .chip.selected');
+        if (!selectedChip) {
+            const timeError = document.getElementById('time-error');
+            if (timeError) {
+                timeError.innerText = 'PLEASE CHOOSE ANY REQUIRED FIELD';
+                timeError.style.display = 'block';
+            }
             return;
         }
-        // Re-randomize whenever time selection changes
-        randomizeIfReady(false);
+        // Proceed with generation
+        navigate('screen-loading');
+        setTimeout(() => {
+            if (isExistingLogin) isExistingLogin = false;
+            generatePlan();
+        }, 700);
+    }
+
+    function generateWorkoutByTime(timeStr) {
+        // Parse time string to minutes
+        const minutes = parseInt(String(timeStr).match(/\d+/)?.[0] || 45);
+        let exerciseCount = 7;
+        let setsPerExercise = 3;
+
+        if (minutes === 15 || minutes === 30) {
+            exerciseCount = 5;
+            setsPerExercise = 2;
+        }
+
+        // Build pool from training focus or fall back to combined
+        let pool = [];
+        if (userData.trainingFocus && userData.trainingFocus.length) {
+            userData.trainingFocus.forEach(cat => {
+                const key = String(cat).toUpperCase();
+                if (exerciseLibrary[key]) {
+                    pool.push(...exerciseLibrary[key]);
+                }
+            });
+        } else if (userData.goals && userData.goals.length) {
+            pool = buildPoolFromGoals(userData.goals);
+        } else {
+            pool = combinedExercisePool.slice();
+        }
+
+        // Deduplicate pool
+        const dedup = [];
+        pool.forEach(e => { if (!dedup.includes(e)) dedup.push(e); });
+
+        // Ensure at least 1 cardio is included
+        const cardioExercises = exerciseLibrary.CARDIO || [];
+        const cardioPool = cardioExercises.slice();
+        const selectedCardio = cardioPool.length > 0 ? cardioPool[Math.floor(Math.random() * cardioPool.length)] : null;
+
+        // Remove cardio from main pool to avoid duplicates
+        const nonCardioPool = dedup.filter(e => !cardioExercises.includes(e));
+
+        // Shuffle and pick exercises
+        const shuffled = shuffleArray(nonCardioPool);
+        const picks = shuffled.slice(0, Math.min(exerciseCount - (selectedCardio ? 1 : 0), shuffled.length));
+
+        // Add cardio at the END
+        const exercises = [];
+        exercises.push(...picks);
+        if (selectedCardio) exercises.push(selectedCardio);
+
+        // Map to format with sets
+        const setLabel = setsPerExercise + ' SETS';
+        lastGeneratedExercises = exercises.map(n => ({ n, s: setLabel, r: '' }));
+
+        return lastGeneratedExercises;
     }
 
     // Generation - call FastAPI LLM endpoint and render result
@@ -529,9 +775,17 @@
             if(document.getElementById('inp-health')) {
                 userData.health = document.getElementById('inp-health').value || userData.health || '';
             }
-            accounts[userData.email].health = userData.health;
-            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
-            randomizeIfReady(true);
+            if (userData.uid) {
+                db.collection('users').doc(userData.uid).update({
+                    health: userData.health
+                });
+            }
+            // Use time-aware generation
+            generateWorkoutByTime(userData.time);
+            renderResult();
+            navigate('screen-result');
+            populateMonthYearSelectors();
+            renderCalendar();
             return;
         }
 
@@ -541,8 +795,9 @@
         if(document.getElementById('inp-health')) {
             userData.health = document.getElementById('inp-health').value || userData.health || '';
         }
-        accounts[userData.email].health = userData.health;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+                db.collection("users").doc(userData.uid).update({
+                    health: userData.health
+                });
 
         // Attempt to call FastAPI endpoint (use /api/routine)
         const endpoints = [ 'http://127.0.0.1:8000/api/routine' ];
@@ -643,9 +898,10 @@
     function saveHealthAndContinue() {
         const h = document.getElementById('inp-health').value;
         userData.health = h;
-        if(userData.email) {
-            accounts[userData.email].health = userData.health;
-            localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        if(userData.uid) {
+            db.collection("users").doc(userData.uid).update({
+              health: userData.health
+            });
         }
         navigate('screen-time');
     }
@@ -914,9 +1170,10 @@
             userData.workoutDays.push(dateStr);
             element.classList.add('active');
         }
-        // Save to account
-        accounts[userData.email].workoutDays = userData.workoutDays;
-        localStorage.setItem('fitbuddyAccounts', JSON.stringify(accounts));
+        // Save to Firestore
+        db.collection("users").doc(userData.uid).update({
+          workoutDays: userData.workoutDays
+        });
     }
 
     // Parse raw routine text (from the model) into exercise objects
@@ -994,16 +1251,24 @@
     // --- LOGOUT ---
     function logout() {
         if(confirm('Are you sure you want to logout?')) {
-            userData.email = '';
-            clearInterval(timerInterval);
-            navigate('screen-welcome');
-            app.classList.add('hero-mode');
-            // Reset timer
-            timerSeconds = 120; // 2 minutes
-            timerRunning = false;
-            timerPhase = 'workout';
-            currentSet = 1;
-            updateTimerDisplay();
+            auth.signOut().then(() => {
+                Object.assign(userData, {
+                  name: 'User',
+                  age: 0,
+                  gender: '',
+                  height: 0,
+                  weight: 0,
+                  bmi: 0,
+                  goals: [],
+                  time: '',
+                  health: '',
+                  email: '',
+                  workoutDays: []
+                });
+                clearInterval(timerInterval);
+                navigate('screen-welcome');
+                app.classList.add('hero-mode');
+            });
         }
     }
 
