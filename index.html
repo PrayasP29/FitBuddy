@@ -1,4 +1,4 @@
-                                                                }                                                                }
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -829,15 +829,17 @@
                 const snap = await db.collection("users").doc(user.uid).get();
                 if (snap.exists) {
                     Object.assign(userData, snap.data());
-
-                    if (!userData.name || !userData.age || !userData.height || !userData.weight) {
-                        navigate('screen-name');
-                    } else {
-                        navigate('screen-result');
-                    }
                 }
             } catch (err) {
                 console.error("Auto-login failed:", err);
+            }
+            // Navigate based on whether the user's profile is complete
+            if (isProfileComplete()) {
+                navigationStack = [];
+                navigate('screen-goals');
+            } else {
+                navigationStack = [];
+                navigate('screen-name');
             }
         });
 
@@ -853,6 +855,7 @@
     let timerRunning = false;
     let timerPhase = 'workout'; // 'workout' or 'rest'
     let currentSet = 1;
+    let navigationStack = [];
 
     const userData = {
         name: 'User',
@@ -1011,6 +1014,11 @@
 
     // Navigation
     function navigate(screenId) {
+        const current = document.querySelector('.screen.active');
+        if (current && current.id !== screenId) {
+            navigationStack.push(current.id);
+        }
+
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         clearScreenError();
         document.getElementById(screenId).classList.add('active');
@@ -1020,6 +1028,14 @@
             app.classList.add('hero-mode');
         } else {
             app.classList.remove('hero-mode');
+        }
+
+        // 🔥 FIX: Initialize calendar when result screen is shown
+        if (screenId === 'screen-result') {
+            setTimeout(() => {
+                populateMonthYearSelectors();
+                renderCalendar();
+            }, 50);
         }
     }
 
@@ -1051,8 +1067,9 @@
         document.querySelectorAll('[id$="-error"]').forEach(el => el.style.display = 'none');
     }
 
-    function goBack(screenId, isWelcome = false) {
-        navigate(screenId);
+    function goBack(fallbackScreen) {
+        const prev = navigationStack.pop();
+        navigate(prev || fallbackScreen || 'screen-welcome');
     }
 
     // Auth Flow
@@ -1127,12 +1144,13 @@
 
                                 errorDiv.style.display = 'none';
                                 confirmErrorDiv.style.display = 'none';
-
                                                                 if (!userData.name || !userData.age || !userData.height || !userData.weight) {
+                                                                    navigationStack = [];
                                                                     navigate('screen-name');
                                                                     setTimeout(() => { isManualAuthFlow = false; }, 500);
                                                                 } else {
-                                                                    navigate('screen-result');
+                                                                    navigationStack = [];
+                                                                    navigate('screen-goals');
                                                                     setTimeout(() => { isManualAuthFlow = false; }, 500);
                                                                 }
               })
