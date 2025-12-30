@@ -522,6 +522,9 @@
 
 <div class="app-container hero-mode" id="app">
     <div id="screen-error" class="error-msg" style="display:none; padding: 0 30px;"></div>
+    <div id="verification-notice" style="display:none; background:rgba(76, 175, 80, 0.15); border-left:3px solid #4CAF50; padding:16px 20px; margin:0; color:#4CAF50; font-size:13px; line-height:1.5; text-align:center;">
+        <strong>✓ Verification email sent.</strong> Please check your inbox. If you don't see it within a few minutes, check your Spam or Promotions folder.
+    </div>
     
     <div class="screen active" id="screen-welcome">
         
@@ -1105,6 +1108,20 @@
         document.querySelectorAll('[id$="-error"]').forEach(el => el.style.display = 'none');
     }
 
+    function showEmailVerificationMessage() {
+        const noticeDiv = document.getElementById('verification-notice');
+        if (noticeDiv) {
+            noticeDiv.style.display = 'block';
+        }
+    }
+
+    function hideEmailVerificationMessage() {
+        const noticeDiv = document.getElementById('verification-notice');
+        if (noticeDiv) {
+            noticeDiv.style.display = 'none';
+        }
+    }
+
     function goBack(fallbackScreen) {
         const prev = navigationStack.pop();
         navigate(prev || fallbackScreen || 'screen-welcome');
@@ -1229,6 +1246,9 @@
                                     });
                                 // ✅ THEN: send verification email
                                 await user.sendEmailVerification();
+
+                                // Show verification notice to user
+                                showEmailVerificationMessage();
 
                                 alert("Verification email sent. Please verify before continuing.");
 
